@@ -1,3 +1,6 @@
+# - type-hinting -
+from typing import Optional, Union
+
 # - built-in -
 import os
 import sys
@@ -6,13 +9,14 @@ import logging
 import argparse
 import psutil
 from pathlib import Path
-from typing import Optional
 
 # - third-party -
 from win32com import client
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException, SessionNotCreatedException
@@ -30,19 +34,58 @@ DEFAULT_MUDFISH_ROUTER_URL = "http://192.168.1.1:8282"
 MUDFISH_STOP_BUTTON_ID = (By.ID, "mudwd-vpn-stop-btn")
 MUDFISH_START_BUTTON_ID = (By.ID, "mudwd-vpn-start-btn")
 
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument("headless")
+
+class HeadlessChromeDriver(webdriver.Chrome):
+
+    def __init__(
+            self,
+            options: Options = None,
+            service: Service = None,
+            keep_alive: bool = True
+    ):
+        """
+        Creates a new instance of the chrome driver. Starts the service and
+        then creates new instance of chrome driver.
+
+        :param options: This takes an instance of ChromeOptions
+        :param service: Service object for handling the browser driver.
+        :param keep_alive: Whether to configure ChromeRemoteConnection to use HTTP keep-alive.
+        """
+
+        # forces the Chrome Driver to run headless
+        headless_options = webdriver.ChromeOptions()
+        headless_options.add_argument("headless")
+
+        # override internal options
+        self.options = options if options else headless_options
+
+        # let it do the rest
+        super().__init__(
+            options=self.options,
+            service=service,
+            keep_alive=keep_alive
+        )
 
 
-def get_chrome_driver():
+def get_chrome_driver() -> Optional[webdriver.Chrome]:
+    """
+    Tries to get a chrome driver instance.
+
+    :return: A chrome driver instance if successful, None otherwise.
+    """
     try:
-        return webdriver.Chrome(options=chrome_options)
+        return HeadlessChromeDriver()
     except SessionNotCreatedException:
         logger.warning("No Chrome Driver found!")
         return None
 
 
-def install_chrome_driver():
+def install_chrome_driver() -> webdriver.Chrome:
+    """
+    Installs chrome driver and returns a new chrome driver instance.
+
+    :return: A new chrome driver instance.
+    """
     from get_chrome_driver import GetChromeDriver
 
     # install the chrome driver
@@ -50,10 +93,16 @@ def install_chrome_driver():
     chrome_driver.install()
 
     # return a new instance to use later
-    return webdriver.Chrome(options=chrome_options)
+    return HeadlessChromeDriver()
 
 
-def prompt_install_chrome_driver():
+def prompt_install_chrome_driver() -> Union[webdriver.Chrome, bool]:
+    """
+    Prompts user to install chrome driver if not found.
+    Returns a new chrome driver instance if user agrees to install, False otherwise.
+
+    :return: A new chrome driver instance if user agrees to install, False otherwise.
+    """
     import tkinter
 
     # create root window instance and hide it
@@ -61,7 +110,7 @@ def prompt_install_chrome_driver():
     root.withdraw()
 
     try:
-        return webdriver.Chrome(options=chrome_options)
+        return HeadlessChromeDriver()
     except SessionNotCreatedException:
         from tkinter import messagebox
 
@@ -109,7 +158,7 @@ def ensure_mudfish_is_running(
 
     # early return if mudfish is already running
     if is_mudfish_running():
-        logger.info("Mudfish is already running, ...")
+        logger.info("Mudfish is already running...")
         return True
 
     # otherwise attempt to find and run the Mudfish Launcher
@@ -167,7 +216,7 @@ def login_and_connect_to_mudfish(
     :param chrome_driver: Chrome ``webdriver`` instance (new instance if None is given).
     """
     try:
-        chrome_driver = chrome_driver or webdriver.Chrome(options=chrome_options)
+        chrome_driver = chrome_driver or HeadlessChromeDriver()
 
         logger.info("Logging into Mudfish host...")
         chrome_driver.get(adminpage)
