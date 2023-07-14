@@ -10,13 +10,13 @@ A rough script that automates logging in and connecting to Mudfish.
 ### Setup
 Ensure requirements are installed
 
-```console
+```bash
 $ pip install -r requirements.txt
 ```
 
 ### Run
 
-```console
+```bash
 $ python main.py -u <mudfish-username> -p <mudfish-password>
 ```
 
@@ -27,7 +27,7 @@ $ python main.py -u <mudfish-username> -p <mudfish-password>
 
 It's suggested that you either use a rest API for a password manager, like Onepassword's [connect-sdk-python](https://youtu.be/0guOMTiwmhk](https://github.com/1Password/connect-sdk-python)), or to encrypt your password to disk.
 
-```console
+```bash
 usage: mudfish-auto/main.py [-h] -u USERNAME -p PASSWORD [-a ADMINPAGE] [-l LAUNCHER]
 
 Auto-connect Mudfish
