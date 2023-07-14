@@ -1,4 +1,4 @@
-Mudfish Auto
+Auto Mudfish
 ================================
 
 A rough script that automates logging in and connecting to Mudfish.
@@ -14,10 +14,46 @@ Ensure requirements are installed
 $ pip install -r requirements.txt
 ```
 
-### Run
+### Commandline
 
 ```bash
-$ python main.py -u <mudfish-username> -p <mudfish-password>
+$ python automate_mudfish.py -u <mudfish-username> -p <mudfish-password>
+```
+
+### Auto Start
+
+```python
+from auto_mudfish import automate_mudfish
+
+automate_mudfish.auto_start("username", "password")
+```
+
+### Module Standard Use
+
+```python
+from auto_mudfish.process import MudfishProcess
+from auto_mudfish.connection import MudfishConnection
+from auto_mudfish.driver import get_chrome_driver
+
+# mudfish launcher process
+mudfish_process = MudfishProcess()
+
+# start mudfish launcher
+mudfish_process.start_mudfish_launcher()
+
+# get a new instance of the chrome driver (defaults to headless)
+chrome_driver = get_chrome_driver(headless=False)
+
+# create a mudfish connection instance
+mudfish_connection = MudfishConnection(web_driver=chrome_driver)
+
+# login with username and password
+mudfish_connection.login("username", "password")
+
+# # Connect/Disconnect
+mudfish_connection.connect()
+mudfish_connection.disconnect()
+
 ```
 
 ###### *NOTE: I'm running a `bash` file so I don't expose my password. Feel free to set it up however you please.*
