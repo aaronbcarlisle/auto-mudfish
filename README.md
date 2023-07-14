@@ -28,7 +28,7 @@ from auto_mudfish import automate_mudfish
 automate_mudfish.auto_start("username", "password")
 ```
 
-### Module Standard Use
+### Module Use
 
 ```python
 from auto_mudfish.process import MudfishProcess
@@ -55,6 +55,7 @@ mudfish_connection.connect()
 mudfish_connection.disconnect()
 
 ```
+# Demo
 
 ###### *NOTE: I'm running a `bash` file so I don't expose my password. Feel free to set it up however you please.*
 ![Mudfish Demo](resources/images/mudfish-demo.gif)
@@ -64,7 +65,7 @@ mudfish_connection.disconnect()
 It's suggested that you either use a rest API for a password manager, like Onepassword's [connect-sdk-python](https://youtu.be/0guOMTiwmhk](https://github.com/1Password/connect-sdk-python)), or to encrypt your password to disk.
 
 ```bash
-usage: mudfish-auto/main.py [-h] -u USERNAME -p PASSWORD [-a ADMINPAGE] [-l LAUNCHER]
+usage: automate_mudfish.py [-h] -u USERNAME -p PASSWORD [-a ADMINPAGE] [-l LAUNCHER]
 
 Auto-connect Mudfish
 
