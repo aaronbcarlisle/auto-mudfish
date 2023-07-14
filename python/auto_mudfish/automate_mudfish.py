@@ -7,9 +7,9 @@ import logging
 import argparse
 
 # internal
-from .process import MudfishProcess
-from .connection import MudfishConnection
-from .driver import get_chrome_driver, prompt_install_chrome_driver
+from process import MudfishProcess
+from connection import MudfishConnection
+from driver import get_chrome_driver, prompt_install_chrome_driver
 
 # logging
 logger = logging.getLogger("auto_mudfish.cmd")
