@@ -5,19 +5,38 @@ A rough script that automates logging in and connecting to Mudfish.
 
 ---
 
-# How To Use
+# Installation
+Ensure that Python 3 > and PIP are installed and in your `PATH`
 
-### Setup
-Ensure requirements are installed
+[How To add a path to the PATH environment variable](https://learn.microsoft.com/en-us/previous-versions/office/developer/sharepoint-2010/ee537574(v=office.14))
+ - **python.exe:** `C:\Users\aaron\AppData\Local\Programs\Python\Python311`
+ - **pip.exe:** `C:\Users\aaron\AppData\Local\Programs\Python\Python311\Scripts`
 
-```bash
-$ pip install -r requirements.txt
+
+### Download and Install
+##### **Run the following in a Command Prompt*
+
+```batch
+cd %USERPROFILE% && git clone https://github.com/aaronbcarlisle/auto-mudfish.git && cd auto-mudfish && pip install -r requirements.txt
 ```
+
+# How To Use
 
 ### Commandline
 
-```bash
+```batch
 $ python main.py -u <mudfish-username> -p <mudfish-password>
+```
+
+### Batch Script
+
+Replace `<username>` and `<password>` with your own and save to disk as a `cmd` file next to the `main.py` script for an easy double-click solution.
+
+```batch
+@echo off
+python .\main.py -u <username> -p <password>
+pause
+
 ```
 
 # Demo
