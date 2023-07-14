@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException
 
 # internal
-from .driver import ChromeDriver
+from driver import ChromeDriver
 
 # logging
 logger = logging.getLogger("auto_mudfish.connection")
