@@ -1,7 +1,7 @@
 Mudfish Auto
 ================================
 
-Automates logging in and connecting to Mudfish.
+A rough script that automates logging in and connecting to Mudfish.
 
 ---
 
