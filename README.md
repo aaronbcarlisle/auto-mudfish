@@ -6,15 +6,20 @@ A rough script that automates logging in and connecting to Mudfish.
 ---
 
 # Installation
-Ensure that Python 3 > and PIP are installed and in your `PATH`
+### Ensure that Python 3 > and PIP are installed and in your `PATH`
 
 [How To add a path to the PATH environment variable](https://learn.microsoft.com/en-us/previous-versions/office/developer/sharepoint-2010/ee537574(v=office.14))
- - **python.exe:** `C:\Users\aaron\AppData\Local\Programs\Python\Python311`
- - **pip.exe:** `C:\Users\aaron\AppData\Local\Programs\Python\Python311\Scripts`
+
+**Likely Python Paths:**
+ - **python.exe:** `C:\Users\aaron\AppData\Local\Programs\Python\Python***`
+ - **pip.exe:** `C:\Users\aaron\AppData\Local\Programs\Python\Python***\Scripts`
 
 
 ### Download and Install
-##### **Run the following in a Command Prompt*
+
+The following batch command downloads the `auto-mudfish` repository to your `user` folder and installs the package dependencies.
+
+###### **Run the following in a Command Prompt*
 
 ```batch
 cd %USERPROFILE% && git clone https://github.com/aaronbcarlisle/auto-mudfish.git && cd auto-mudfish && pip install -r requirements.txt
@@ -22,7 +27,7 @@ cd %USERPROFILE% && git clone https://github.com/aaronbcarlisle/auto-mudfish.git
 
 # How To Use
 
-### Commandline
+### Command Line
 
 ```batch
 $ python main.py -u <mudfish-username> -p <mudfish-password>
@@ -30,8 +35,9 @@ $ python main.py -u <mudfish-username> -p <mudfish-password>
 
 ### Batch Script
 
-Replace `<username>` and `<password>` with your own and save to disk as a `cmd` file next to the `main.py` script for an easy double-click solution.
+Replace `<username>` and `<password>` in the [start_mudfish.cmd](start_mudfish.cmd) file and double-click to connect.
 
+###### **start_mudfish.cmd contents*
 ```batch
 @echo off
 python .\main.py -u <username> -p <password>
@@ -39,9 +45,12 @@ pause
 
 ```
 
-# Usage
+### Credentials & Security
 
-It's suggested that you either use a rest API for a password manager, like Onepassword's [connect-sdk-python](https://youtu.be/0guOMTiwmhk](https://github.com/1Password/connect-sdk-python)), or to encrypt your password to disk.
+You can improve credential security by using a password manager or a cloud API key. 1Password has a pretty gnarly Python wrapper around their REST API: 
+ - [connect-sdk-python](https://youtu.be/0guOMTiwmhk](https://github.com/1Password/connect-sdk-python))
+
+# Usage
 
 ```bash
 usage: main.py [-h] -u USERNAME -p PASSWORD [-a ADMINPAGE] [-l LAUNCHER]
