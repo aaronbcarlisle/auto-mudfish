@@ -15,7 +15,7 @@ from .driver import get_chrome_driver, prompt_install_chrome_driver
 logger = logging.getLogger("auto_mudfish.cmd")
 
 
-def mudfish_auto(
+def auto_start(
         username: str,
         password: str,
         adminpage: Optional[str] = None,
@@ -97,6 +97,6 @@ if __name__ == "__main__":
     # pass commandline args to the setup method to start process
     main_kwargs = vars(parser.parse_args())
     logger.debug(f"Parser Kwargs: '{main_kwargs}'")
-    mudfish_auto(**main_kwargs)
+    auto_start(**main_kwargs)
 
     sys.exit()
