@@ -42,7 +42,7 @@ mudfish_process = MudfishProcess()
 mudfish_process.start_mudfish_launcher()
 
 # get a new instance of the chrome driver (defaults to headless)
-chrome_driver = get_chrome_driver(headless=False)
+chrome_driver = get_chrome_driver()
 
 # create a mudfish connection instance
 mudfish_connection = MudfishConnection(web_driver=chrome_driver)
