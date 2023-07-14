@@ -6,10 +6,11 @@ import logging
 
 # third-party
 from selenium import webdriver
-from get_chrome_driver import GetChromeDriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import SessionNotCreatedException
+
+from get_chrome_driver import GetChromeDriver
 
 # logging
 logger = logging.getLogger("auto_mudfish.driver")
