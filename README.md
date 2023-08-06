@@ -6,7 +6,7 @@ A hacky script that automates logging in and connecting to Mudfish.
 ---
 
 # Installation
-### Ensure that Python 3.x.x and PIP are installed and in your `PATH`
+###Ensure that Python 3.x.x and PIP are installed and in your `PATH`
 
 [How To add a path to the PATH environment variable](https://learn.microsoft.com/en-us/previous-versions/office/developer/sharepoint-2010/ee537574(v=office.14))
 
