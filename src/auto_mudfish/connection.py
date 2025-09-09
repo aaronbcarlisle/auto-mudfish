@@ -299,22 +299,38 @@ class MudfishConnection:
             ...     logger.info("VPN is connected")
         """
         if not self.web_driver:
+            logger.warning("No WebDriver available for connection status check")
             return False
             
         try:
+            import time
+            start_time = time.time()
+            timeout = 5  # 5 second timeout for status check
             # Method 1: Check for disconnect button
+            if time.time() - start_time > timeout:
+                logger.warning("Status check timeout during disconnect button check")
+                return False
+                
             disconnect_btn = self.get_disconnect_button(use_stop_condition=True)
             if disconnect_btn and disconnect_btn.is_displayed():
                 logger.info("Found disconnect button - VPN appears connected")
                 return True
             
             # Method 2: Check for connect button (if it exists, we're disconnected)
+            if time.time() - start_time > timeout:
+                logger.warning("Status check timeout during connect button check")
+                return False
+                
             connect_btn = self.get_connect_button(use_start_condition=True)
             if connect_btn and connect_btn.is_displayed():
                 logger.info("Found connect button - VPN appears disconnected")
                 return False
             
             # Method 3: Check page content for connection indicators
+            if time.time() - start_time > timeout:
+                logger.warning("Status check timeout during page content check")
+                return False
+                
             page_source = self.web_driver.page_source.lower()
             connected_indicators = [
                 "connected", "vpn is on", "disconnect", "stop vpn", 
@@ -336,6 +352,10 @@ class MudfishConnection:
                     return False
             
             # Method 4: Check for specific Mudfish status elements
+            if time.time() - start_time > timeout:
+                logger.warning("Status check timeout during status elements check")
+                return False
+                
             try:
                 status_elements = self.web_driver.find_elements(By.CLASS_NAME, "status")
                 for element in status_elements:
@@ -349,7 +369,12 @@ class MudfishConnection:
             except Exception as e:
                 logger.debug("Could not check status elements: %s", e)
             
-            logger.warning("Could not determine connection status - no clear indicators found")
+            # If we get here, we couldn't determine status within timeout
+            elapsed_time = time.time() - start_time
+            if elapsed_time > timeout:
+                logger.warning("Status check timed out after %.2f seconds - assuming disconnected", elapsed_time)
+            else:
+                logger.warning("Could not determine connection status - no clear indicators found")
             return False
             
         except Exception as e:

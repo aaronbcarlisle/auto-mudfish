@@ -189,19 +189,44 @@ class MudfishWorker(QThread):
             self.progress_update.emit(50)
             self.log_message.emit("WebDriver created, checking status...")
             
-            mudfish_connection = MudfishConnection(web_driver=chrome_driver)
-            self.progress_update.emit(75)
-            
-            if mudfish_connection.is_mudfish_connected():
-                status_msg = "Mudfish is currently connected."
+            try:
+                mudfish_connection = MudfishConnection(web_driver=chrome_driver)
+                self.progress_update.emit(75)
+                
+                # Add timeout for status check
+                import time
+                start_time = time.time()
+                timeout = 10  # 10 second timeout
+                
+                self.log_message.emit("Attempting to determine connection status...")
+                
+                # Try to check connection status with timeout
+                is_connected = False
+                try:
+                    is_connected = mudfish_connection.is_mudfish_connected()
+                except Exception as e:
+                    self.log_message.emit(f"Status check encountered error: {e}")
+                
+                # Check if we timed out
+                elapsed_time = time.time() - start_time
+                if elapsed_time > timeout:
+                    self.log_message.emit("Status check timed out, assuming disconnected")
+                    is_connected = False
+                
+                if is_connected:
+                    status_msg = "Mudfish is currently connected."
+                else:
+                    status_msg = "Mudfish is not connected."
+                
                 self.log_message.emit(status_msg)
                 self.progress_update.emit(100)
                 self.operation_complete.emit(True, status_msg)
-            else:
-                status_msg = "Mudfish is not connected."
-                self.log_message.emit(status_msg)
+                
+            except Exception as e:
+                error_msg = f"Error during status check: {str(e)}"
+                self.log_message.emit(error_msg)
                 self.progress_update.emit(100)
-                self.operation_complete.emit(True, status_msg)
+                self.operation_complete.emit(False, error_msg)
         else:
             error_msg = "Failed to check status - WebDriver error."
             self.log_message.emit(error_msg)
