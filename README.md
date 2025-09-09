@@ -38,9 +38,6 @@ The installer will:
 - **Detailed logs and troubleshooting**
 - **Settings and preferences**
 
-![Auto Mudfish VPN GUI](assets/gui-screenshot.png)
-*The Auto Mudfish VPN GUI showing connection status and controls*
-
 ### Option 2: Python Development Setup
 
 **For developers or users who prefer to run from source:**
