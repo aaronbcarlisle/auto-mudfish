@@ -287,8 +287,8 @@ class MudfishConnection:
         """
         Check if Mudfish VPN is currently connected.
         
-        This method determines the connection status by looking for the
-        presence of the disconnect button, which indicates an active connection.
+        This method determines the connection status by looking for multiple
+        indicators of an active connection, including button states and page content.
         
         Returns:
             bool: True if Mudfish is connected, False otherwise.
@@ -300,7 +300,61 @@ class MudfishConnection:
         """
         if not self.web_driver:
             return False
-        return bool(self.get_disconnect_button(use_stop_condition=True))
+            
+        try:
+            # Method 1: Check for disconnect button
+            disconnect_btn = self.get_disconnect_button(use_stop_condition=True)
+            if disconnect_btn and disconnect_btn.is_displayed():
+                logger.info("Found disconnect button - VPN appears connected")
+                return True
+            
+            # Method 2: Check for connect button (if it exists, we're disconnected)
+            connect_btn = self.get_connect_button(use_start_condition=True)
+            if connect_btn and connect_btn.is_displayed():
+                logger.info("Found connect button - VPN appears disconnected")
+                return False
+            
+            # Method 3: Check page content for connection indicators
+            page_source = self.web_driver.page_source.lower()
+            connected_indicators = [
+                "connected", "vpn is on", "disconnect", "stop vpn", 
+                "vpn status: connected", "status: connected"
+            ]
+            disconnected_indicators = [
+                "disconnected", "vpn is off", "connect", "start vpn",
+                "vpn status: disconnected", "status: disconnected"
+            ]
+            
+            for indicator in connected_indicators:
+                if indicator in page_source:
+                    logger.info("Found connection indicator in page: %s", indicator)
+                    return True
+                    
+            for indicator in disconnected_indicators:
+                if indicator in page_source:
+                    logger.info("Found disconnection indicator in page: %s", indicator)
+                    return False
+            
+            # Method 4: Check for specific Mudfish status elements
+            try:
+                status_elements = self.web_driver.find_elements(By.CLASS_NAME, "status")
+                for element in status_elements:
+                    text = element.text.lower()
+                    if "connected" in text:
+                        logger.info("Found status element indicating connection: %s", text)
+                        return True
+                    elif "disconnected" in text:
+                        logger.info("Found status element indicating disconnection: %s", text)
+                        return False
+            except Exception as e:
+                logger.debug("Could not check status elements: %s", e)
+            
+            logger.warning("Could not determine connection status - no clear indicators found")
+            return False
+            
+        except Exception as e:
+            logger.error("Error checking connection status: %s", e)
+            return False
 
     def is_mudfish_disconnected(self) -> bool:
         """
@@ -330,7 +384,7 @@ class MudfishConnection:
         Find and return the Mudfish connect button element.
         
         This method locates the connect button on the Mudfish web interface
-        using either explicit waiting or implicit waiting strategies.
+        using multiple strategies including different selectors and text matching.
         
         Args:
             use_start_condition (bool, optional): If True, uses WebDriverWait
@@ -352,20 +406,36 @@ class MudfishConnection:
         if not self.web_driver:
             return None
             
-        try:
-            if use_start_condition:
-                start_condition = EC.presence_of_element_located(self.START_BUTTON_ID)
-                connect_button = WebDriverWait(self.web_driver, poll_time).until(start_condition)
-            else:
-                self.web_driver.implicitly_wait(poll_time)
-                connect_button = self.web_driver.find_element(*self.START_BUTTON_ID)
+        # Multiple strategies to find the connect button
+        selectors = [
+            self.START_BUTTON_ID,  # Original ID selector
+            (By.ID, "start-btn"),  # Alternative ID
+            (By.CLASS_NAME, "start-btn"),  # Class name
+            (By.CLASS_NAME, "connect-btn"),  # Another class name
+            (By.XPATH, "//button[contains(text(), 'Connect')]"),  # Text-based
+            (By.XPATH, "//button[contains(text(), 'Start')]"),  # Alternative text
+            (By.XPATH, "//input[@type='button' and contains(@value, 'Connect')]"),  # Input button
+            (By.XPATH, "//a[contains(text(), 'Connect')]"),  # Link
+        ]
+        
+        for selector in selectors:
+            try:
+                if use_start_condition:
+                    condition = EC.presence_of_element_located(selector)
+                    button = WebDriverWait(self.web_driver, poll_time).until(condition)
+                else:
+                    self.web_driver.implicitly_wait(poll_time)
+                    button = self.web_driver.find_element(*selector)
 
-            if connect_button.is_displayed():
-                return connect_button
+                if button and button.is_displayed():
+                    logger.debug("Found connect button using selector: %s", selector)
+                    return button
 
-        except (TimeoutException, NoSuchElementException):
-            logger.debug("No `Connect` button found!")
+            except (TimeoutException, NoSuchElementException):
+                logger.debug("Connect button not found with selector: %s", selector)
+                continue
 
+        logger.debug("No connect button found with any selector")
         return None
 
     def get_disconnect_button(
@@ -377,7 +447,7 @@ class MudfishConnection:
         Find and return the Mudfish disconnect button element.
         
         This method locates the disconnect button on the Mudfish web interface
-        using either explicit waiting or implicit waiting strategies.
+        using multiple strategies including different selectors and text matching.
         
         Args:
             use_stop_condition (bool, optional): If True, uses WebDriverWait
@@ -399,18 +469,99 @@ class MudfishConnection:
         if not self.web_driver:
             return None
             
-        try:
-            if use_stop_condition:
-                stop_condition = EC.presence_of_element_located(self.STOP_BUTTON_ID)
-                disconnect_button = WebDriverWait(self.web_driver, poll_time).until(stop_condition)
-            else:
-                self.web_driver.implicitly_wait(poll_time)
-                disconnect_button = self.web_driver.find_element(*self.STOP_BUTTON_ID)
+        # Multiple strategies to find the disconnect button
+        selectors = [
+            self.STOP_BUTTON_ID,  # Original ID selector
+            (By.ID, "stop-btn"),  # Alternative ID
+            (By.CLASS_NAME, "stop-btn"),  # Class name
+            (By.CLASS_NAME, "disconnect-btn"),  # Another class name
+            (By.XPATH, "//button[contains(text(), 'Disconnect')]"),  # Text-based
+            (By.XPATH, "//button[contains(text(), 'Stop')]"),  # Alternative text
+            (By.XPATH, "//input[@type='button' and contains(@value, 'Disconnect')]"),  # Input button
+            (By.XPATH, "//a[contains(text(), 'Disconnect')]"),  # Link
+        ]
+        
+        for selector in selectors:
+            try:
+                if use_stop_condition:
+                    condition = EC.presence_of_element_located(selector)
+                    button = WebDriverWait(self.web_driver, poll_time).until(condition)
+                else:
+                    self.web_driver.implicitly_wait(poll_time)
+                    button = self.web_driver.find_element(*selector)
 
-            if disconnect_button.is_displayed():
-                return disconnect_button
+                if button and button.is_displayed():
+                    logger.debug("Found disconnect button using selector: %s", selector)
+                    return button
 
-        except (TimeoutException, NoSuchElementException):
-            logger.debug("No `Disconnect` button found!")
+            except (TimeoutException, NoSuchElementException):
+                logger.debug("Disconnect button not found with selector: %s", selector)
+                continue
 
+        logger.debug("No disconnect button found with any selector")
         return None
+
+    def debug_connection_status(self) -> None:
+        """
+        Debug method to help troubleshoot connection status detection.
+        
+        This method logs detailed information about the current page state
+        to help identify why connection status detection might be failing.
+        """
+        if not self.web_driver:
+            logger.info("No WebDriver available for debugging")
+            return
+            
+        try:
+            logger.info("=== CONNECTION STATUS DEBUG ===")
+            
+            # Get current URL
+            current_url = self.web_driver.current_url
+            logger.info("Current URL: %s", current_url)
+            
+            # Get page title
+            page_title = self.web_driver.title
+            logger.info("Page title: %s", page_title)
+            
+            # Check for all buttons on the page
+            all_buttons = self.web_driver.find_elements(By.TAG_NAME, "button")
+            logger.info("Found %d buttons on page:", len(all_buttons))
+            for i, button in enumerate(all_buttons):
+                try:
+                    text = button.text.strip()
+                    button_id = button.get_attribute("id")
+                    button_class = button.get_attribute("class")
+                    is_displayed = button.is_displayed()
+                    logger.info("  Button %d: text='%s', id='%s', class='%s', displayed=%s", 
+                              i+1, text, button_id, button_class, is_displayed)
+                except Exception as e:
+                    logger.info("  Button %d: Error getting details: %s", i+1, e)
+            
+            # Check for all input elements
+            all_inputs = self.web_driver.find_elements(By.TAG_NAME, "input")
+            logger.info("Found %d input elements on page:", len(all_inputs))
+            for i, input_elem in enumerate(all_inputs):
+                try:
+                    input_type = input_elem.get_attribute("type")
+                    input_value = input_elem.get_attribute("value")
+                    input_id = input_elem.get_attribute("id")
+                    input_class = input_elem.get_attribute("class")
+                    is_displayed = input_elem.is_displayed()
+                    logger.info("  Input %d: type='%s', value='%s', id='%s', class='%s', displayed=%s", 
+                              i+1, input_type, input_value, input_id, input_class, is_displayed)
+                except Exception as e:
+                    logger.info("  Input %d: Error getting details: %s", i+1, e)
+            
+            # Check page source for key terms
+            page_source = self.web_driver.page_source.lower()
+            key_terms = ["connect", "disconnect", "start", "stop", "vpn", "status", "connected", "disconnected"]
+            logger.info("Key terms found in page source:")
+            for term in key_terms:
+                count = page_source.count(term)
+                if count > 0:
+                    logger.info("  '%s': %d occurrences", term, count)
+            
+            logger.info("=== END DEBUG ===")
+            
+        except Exception as e:
+            logger.error("Error during debug: %s", e)

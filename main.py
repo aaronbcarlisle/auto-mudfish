@@ -317,13 +317,22 @@ Examples:
         action="store_true",
         help="Clean up old ChromeDriver versions"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode with detailed logging"
+    )
 
     # Parse arguments
     args = parser.parse_args()
     
     # Configure logging level
-    if args.verbose:
+    if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+    elif args.verbose:
+        logging.getLogger().setLevel(logging.INFO)
+    else:
+        logging.getLogger().setLevel(logging.WARNING)
     
     # Handle credential management commands
     if args.setup:

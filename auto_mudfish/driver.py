@@ -336,10 +336,17 @@ class ChromeDriver(webdriver.Chrome):
         # Configure headless mode if requested
         if headless:
             chrome_options = self.options or webdriver.ChromeOptions()
-            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--headless=new")  # Use new headless mode
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-plugins")
+            chrome_options.add_argument("--disable-images")
+            # Note: We need JavaScript for Mudfish interface, so don't disable it
             self.options = chrome_options
         
         # Create service with executable path if provided

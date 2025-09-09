@@ -80,7 +80,23 @@ def auto_start(
     # Create connection with WebDriver for full automation
     mudfish_connection = MudfishConnection(web_driver=chrome_driver)
     mudfish_connection.login(username, password, adminpage=adminpage)
-    mudfish_connection.connect()
+    
+    # Debug connection status before attempting to connect
+    logger.info("Checking current connection status...")
+    mudfish_connection.debug_connection_status()
+    
+    # Check if already connected
+    if mudfish_connection.is_mudfish_connected():
+        logger.info("Mudfish is already connected!")
+    else:
+        logger.info("Mudfish is not connected, attempting to connect...")
+        mudfish_connection.connect()
+        
+        # Verify connection after attempting to connect
+        if mudfish_connection.is_mudfish_connected():
+            logger.info("Successfully connected to Mudfish VPN!")
+        else:
+            logger.warning("Connection attempt completed, but status unclear. Please check manually.")
     
     logger.info("Mudfish automation completed successfully!")
 
