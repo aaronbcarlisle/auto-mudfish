@@ -45,8 +45,10 @@ try:
         draw.text((text_x, text_y), text, fill=(33, 150, 243, 255), font=font)
         
         # Save as ICO file
-        img.save('icon.ico', format='ICO', sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-        print("Icon created: icon.ico")
+        icon_path = '../assets/icon.ico'
+        os.makedirs(os.path.dirname(icon_path), exist_ok=True)
+        img.save(icon_path, format='ICO', sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+        print(f"Icon created: {icon_path}")
         
     if __name__ == "__main__":
         create_icon()
@@ -55,8 +57,10 @@ except ImportError:
     print("PIL (Pillow) not found. Creating a simple placeholder icon...")
     
     # Create a simple text file as placeholder
-    with open('icon.ico', 'w') as f:
+    icon_path = '../assets/icon.ico'
+    os.makedirs(os.path.dirname(icon_path), exist_ok=True)
+    with open(icon_path, 'w') as f:
         f.write("Placeholder icon file")
     
-    print("Placeholder icon created: icon.ico")
+    print(f"Placeholder icon created: {icon_path}")
     print("To create a proper icon, install Pillow: pip install Pillow")

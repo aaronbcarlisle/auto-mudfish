@@ -37,8 +37,8 @@ def build_executable():
         '--onefile',  # Create a single executable file
         '--windowed',  # No console window (GUI only)
         '--name=AutoMudfish',
-        '--icon=icon.ico',  # Application icon (if available)
-        '--add-data=auto_mudfish;auto_mudfish',  # Include the package
+        '--icon=assets/icon.ico',  # Application icon (if available)
+        '--add-data=src/auto_mudfish;auto_mudfish',  # Include the package
         '--hidden-import=PyQt6.QtCore',
         '--hidden-import=PyQt6.QtGui',
         '--hidden-import=PyQt6.QtWidgets',
@@ -60,11 +60,11 @@ def build_executable():
         '--exclude-module=matplotlib',  # Exclude matplotlib to reduce size
         '--exclude-module=numpy',  # Exclude numpy to reduce size
         '--exclude-module=pandas',  # Exclude pandas to reduce size
-        'gui.py'
+        'src/gui/gui.py'
     ]
     
     # Remove icon parameter if icon file doesn't exist
-    if not os.path.exists('icon.ico'):
+    if not os.path.exists('assets/icon.ico'):
         cmd = [arg for arg in cmd if not arg.startswith('--icon')]
     
     try:
@@ -107,10 +107,10 @@ echo You can now run Auto Mudfish from the desktop shortcut or start menu.
 pause
 '''
     
-    with open('install.bat', 'w') as f:
+    with open('dist/install.bat', 'w') as f:
         f.write(installer_content)
     
-    print("Created installer script: install.bat")
+    print("Created installer script: dist/install.bat")
 
 
 def create_readme():
@@ -155,10 +155,10 @@ def create_readme():
 For issues and questions, please check the project repository on GitHub.
 '''
     
-    with open('README_EXECUTABLE.txt', 'w') as f:
+    with open('dist/README_EXECUTABLE.txt', 'w') as f:
         f.write(readme_content)
     
-    print("Created README: README_EXECUTABLE.txt")
+    print("Created README: dist/README_EXECUTABLE.txt")
 
 
 def main():
@@ -187,8 +187,8 @@ def main():
         
         print("\nFiles created:")
         print("- dist/AutoMudfish.exe (main executable)")
-        print("- install.bat (installer script)")
-        print("- README_EXECUTABLE.txt (user documentation)")
+        print("- dist/install.bat (installer script)")
+        print("- dist/README_EXECUTABLE.txt (user documentation)")
         
         print("\nTo distribute:")
         print("1. Copy the entire 'dist' folder contents")

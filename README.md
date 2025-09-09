@@ -54,13 +54,23 @@ For users without Python:
 
 ```bash
 # Build executable
-python build_exe.py
+scripts\build.bat
 
-# Or use the build script
-build.bat
+# Or manually
+python scripts\build_exe.py
 ```
 
 This creates a standalone executable that can be distributed without requiring Python installation.
+
+### Option 4: Unified Launcher
+
+```bash
+# Launch GUI
+python launcher.py
+
+# Launch CLI
+python launcher.py --cli
+```
 
 ## 📖 Usage
 
@@ -187,15 +197,34 @@ options:
 
 ## 🏗️ Architecture
 
+The project follows a clean, organized structure:
+
+```
+auto-mudfish/
+├── src/                    # Source code
+│   ├── auto_mudfish/      # Core package
+│   ├── gui/               # GUI application
+│   ├── main.py            # CLI interface
+│   └── launcher.py        # Unified launcher
+├── scripts/               # Build and utility scripts
+├── tests/                 # Test suite
+├── docs/                  # Documentation
+├── assets/                # Static assets
+└── root entry points      # main.py, gui.py, launcher.py
+```
+
 ### Core Components
 
 | Module | Purpose |
 |--------|---------|
-| `credentials.py` | Secure credential encryption and storage |
-| `connection.py` | Mudfish VPN connection management |
-| `driver.py` | Chrome WebDriver automation |
-| `process.py` | Mudfish process detection and management |
-| `automate_mudfish.py` | High-level automation orchestration |
+| `src/auto_mudfish/credentials.py` | Secure credential encryption and storage |
+| `src/auto_mudfish/connection.py` | Mudfish VPN connection management |
+| `src/auto_mudfish/driver.py` | Chrome WebDriver automation |
+| `src/auto_mudfish/process.py` | Mudfish process detection and management |
+| `src/auto_mudfish/automate_mudfish.py` | High-level automation orchestration |
+| `src/gui/gui.py` | PyQt6-based graphical user interface |
+
+For detailed structure information, see [docs/STRUCTURE.md](docs/STRUCTURE.md).
 
 ### Connection Flow
 
