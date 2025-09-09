@@ -70,13 +70,14 @@ class CredentialManager:
         try:
             # Convert string to bytes
             data_bytes = data.encode('utf-8')
-            # Encrypt using DPAPI
+            # Encrypt using DPAPI - use the correct parameter order
             encrypted = win32crypt.CryptProtectData(
                 data_bytes,
                 "auto_mudfish_credentials",
-                None,
-                None,
-                0
+                None,  # pOptionalEntropy
+                None,  # pvReserved
+                None,  # pPromptStruct
+                0      # dwFlags
             )
             return encrypted
         except Exception as e:
@@ -94,13 +95,13 @@ class CredentialManager:
             str: Decrypted data.
         """
         try:
-            # Decrypt using DPAPI
+            # Decrypt using DPAPI - use the correct parameter order
             decrypted = win32crypt.CryptUnprotectData(
                 encrypted_data,
-                None,
-                None,
-                None,
-                0
+                None,  # pOptionalEntropy
+                None,  # pvReserved
+                None,  # pPromptStruct
+                0      # dwFlags
             )
             return decrypted[1].decode('utf-8')
         except Exception as e:
