@@ -376,6 +376,44 @@ class MudfishGUI(QMainWindow):
         QPushButton:disabled {
             background-color: #2b2b2b;
             color: #666666;
+            border: 1px solid #444444;
+        }
+        
+        /* Status indicators */
+        .status-connected {
+            background-color: #2e7d32;
+            color: #ffffff;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: bold;
+        }
+        
+        .status-disconnected {
+            background-color: #d32f2f;
+            color: #ffffff;
+            border: 2px solid #f44336;
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: bold;
+        }
+        
+        .status-checking {
+            background-color: #f57c00;
+            color: #ffffff;
+            border: 2px solid #ff9800;
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: bold;
+        }
+        
+        .status-error {
+            background-color: #5d4037;
+            color: #ffffff;
+            border: 2px solid #ff5722;
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: bold;
         }
         
         QLineEdit {
@@ -463,6 +501,8 @@ class MudfishGUI(QMainWindow):
         
         self.status_label = QLabel("Status: Checking...")
         self.status_label.setFont(QFont("Arial", 12))
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setProperty("class", "status-checking")
         status_layout.addWidget(self.status_label)
         
         # Connection info
@@ -699,6 +739,7 @@ class MudfishGUI(QMainWindow):
     def check_status_on_startup(self):
         """Check connection status on startup."""
         self.logger.info("Checking connection status on startup...")
+        self.update_status_display("checking", "Checking...")
         self.check_status()
         
     def connect_mudfish(self):
@@ -714,6 +755,7 @@ class MudfishGUI(QMainWindow):
         self.logger.info("Starting connect operation...")
         self.log_message("Starting connect operation...")
         
+        self.update_status_display("checking", "Connecting...")
         self.connect_btn.setEnabled(False)
         self.disconnect_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
@@ -734,6 +776,7 @@ class MudfishGUI(QMainWindow):
         if self.worker and self.worker.isRunning():
             return
             
+        self.update_status_display("checking", "Disconnecting...")
         self.connect_btn.setEnabled(False)
         self.disconnect_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
@@ -751,6 +794,7 @@ class MudfishGUI(QMainWindow):
         if self.worker and self.worker.isRunning():
             return
             
+        self.update_status_display("checking", "Checking...")
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         
@@ -766,6 +810,35 @@ class MudfishGUI(QMainWindow):
         self.status_bar.showMessage(message)
         self.logger.info(message)
         
+    def update_status_display(self, status_type, message):
+        """Update the status display with appropriate styling."""
+        self.status_label.setText(f"Status: {message}")
+        
+        # Clear previous status classes
+        self.status_label.setProperty("class", "")
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
+        
+        # Apply new status class
+        if status_type == "connected":
+            self.status_label.setProperty("class", "status-connected")
+            self.connection_info.setText("✅ VPN is active and connected")
+        elif status_type == "disconnected":
+            self.status_label.setProperty("class", "status-disconnected")
+            self.connection_info.setText("❌ VPN is not connected")
+        elif status_type == "checking":
+            self.status_label.setProperty("class", "status-checking")
+            self.connection_info.setText("🔄 Checking connection status...")
+        elif status_type == "error":
+            self.status_label.setProperty("class", "status-error")
+            self.connection_info.setText("⚠️ Connection error occurred")
+        else:
+            self.connection_info.setText("ℹ️ " + message)
+        
+        # Refresh the styling
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
+        
     def log_message(self, message):
         """Add message to log display."""
         self.log_display.append(message)
@@ -780,19 +853,22 @@ class MudfishGUI(QMainWindow):
         self.disconnect_btn.setEnabled(True)
         
         if success:
-            self.status_label.setText(f"Status: {message}")
             message_lower = message.lower()
             if "connected" in message_lower and "not connected" not in message_lower:
+                # Connected state
+                self.update_status_display("connected", message)
                 self.connect_btn.setEnabled(False)
                 self.disconnect_btn.setEnabled(True)
                 self.logger.info("Setting buttons: Connect disabled, Disconnect enabled")
             else:
-                # Default case - enable connect, disable disconnect (for disconnected, not connected, or any other status)
+                # Disconnected or not connected state
+                self.update_status_display("disconnected", message)
                 self.connect_btn.setEnabled(True)
                 self.disconnect_btn.setEnabled(False)
                 self.logger.info("Setting buttons: Connect enabled, Disconnect disabled (default/not connected)")
         else:
-            self.status_label.setText("Status: Error")
+            # Error state
+            self.update_status_display("error", "Error")
             QMessageBox.warning(self, "Operation Failed", message)
             
         self.status_bar.showMessage("Ready")
