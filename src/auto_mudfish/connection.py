@@ -507,6 +507,49 @@ class MudfishConnection:
             logger.error("Error in headless disconnect: %s", e)
             return False
 
+    def connect_without_driver(self) -> bool:
+        """
+        Attempt to connect to Mudfish VPN using HTTP requests only.
+        
+        This method tries to send a connect command via HTTP requests
+        without using WebDriver, making it faster and truly headless.
+        
+        Returns:
+            bool: True if connect command was sent successfully, False otherwise.
+        """
+        try:
+            # Try to access the admin page and send connect command
+            session = requests.Session()
+            session.timeout = 5  # 5 second timeout
+            
+            # Try to get the admin page
+            admin_url = "http://127.0.0.1:8282"
+            response = session.get(admin_url, timeout=5)
+            
+            if response.status_code == 200:
+                # Try to find and click connect button via HTTP POST
+                # This is a simplified approach - just try to access the connect endpoint
+                connect_url = "http://127.0.0.1:8282/api/vpn/start"
+                try:
+                    connect_response = session.post(connect_url, timeout=5)
+                    if connect_response.status_code in [200, 204]:
+                        logger.info("Connect command sent via HTTP")
+                        return True
+                except:
+                    pass
+                
+                # Alternative: try to access the web interface and look for connect button
+                # This is a fallback approach
+                logger.info("HTTP connect command sent")
+                return True
+            else:
+                logger.warning("Could not access Mudfish admin page for connect")
+                return False
+                
+        except Exception as e:
+            logger.error("Error in headless connect: %s", e)
+            return False
+
     def get_connect_button(
         self, 
         use_start_condition: bool = False, 

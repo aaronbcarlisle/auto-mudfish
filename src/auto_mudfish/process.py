@@ -18,6 +18,19 @@ from win32com import client
 # Configure logging
 logger = logging.getLogger("auto_mudfish.process")
 
+def is_running_as_admin() -> bool:
+    """
+    Check if the current process is running with administrator privileges.
+    
+    Returns:
+        bool: True if running as administrator, False otherwise.
+    """
+    try:
+        import ctypes
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except Exception:
+        return False
+
 
 class MudfishProcess:
     """
@@ -141,13 +154,39 @@ class MudfishProcess:
         if not launcher_path:
             return False
 
-        # Attempt to start the Mudfish launcher
+        # Attempt to start the Mudfish launcher with -B flag to prevent browser opening
         try:
-            os.startfile(launcher_path)
-            logger.info("Launched Mudfish launcher: %s", launcher_path)
+            # Try to launch with -B flag to prevent browser opening
+            if launcher_path.endswith('.lnk'):
+                # For shortcut files, we need to modify the target
+                import subprocess
+                # Extract the target from the shortcut and add -B flag
+                shell = client.Dispatch("WScript.Shell")
+                shortcut = shell.CreateShortcut(launcher_path)
+                target_path = shortcut.TargetPath
+                working_dir = shortcut.WorkingDirectory
+                
+                # Launch with -B flag to prevent browser opening
+                subprocess.Popen([target_path, "-B"], cwd=working_dir)
+                logger.info("Launched Mudfish launcher with -B flag: %s", target_path)
+            else:
+                # For direct executable, add -B flag
+                import subprocess
+                subprocess.Popen([launcher_path, "-B"])
+                logger.info("Launched Mudfish launcher with -B flag: %s", launcher_path)
         except OSError as e:
-            logger.error("Failed to start Mudfish launcher: %s", e)
-            return False
+            if e.winerror == 740:
+                if is_running_as_admin():
+                    logger.error("Failed to start Mudfish launcher: %s. Even with administrator privileges, Mudfish failed to start.", e)
+                    logger.error("This may indicate a Mudfish installation issue or permission problem.")
+                else:
+                    logger.error("Failed to start Mudfish launcher: %s. This operation requires elevation (Run as Administrator).", e)
+                    logger.error("Mudfish requires administrator privileges to modify network settings.")
+                    logger.error("Please run this application as Administrator or use the provided run_as_admin scripts.")
+                raise  # Re-raise to be caught by the worker thread
+            else:
+                logger.error("Failed to start Mudfish launcher: %s", e)
+                return False
 
         # Poll to verify the process started successfully
         if self.poll_is_mudfish_running(poll_time=poll_time):
@@ -188,8 +227,15 @@ class MudfishProcess:
         Find the appropriate Mudfish launcher executable or shortcut.
         
         This method searches for the Mudfish launcher in the following order:
-        1. Mudfish Launcher shortcut (.lnk) in Start Menu
-        2. Direct executable (mudrun.exe) as fallback
+        1. Mudfish Launcher shortcut (.lnk) in Start Menu - requires elevation
+        2. Headless executable (mudrun_headless.exe) in Program Files - requires elevation
+           - C:\\Program Files (x86)\\Mudfish Cloud VPN\\mudrun_headless.exe (32-bit)
+           - C:\\Program Files\\Mudfish Cloud VPN\\mudrun_headless.exe (64-bit)
+        3. Direct executable (mudrun.exe) in Program Files - requires elevation
+           - C:\\Program Files (x86)\\Mudfish Cloud VPN\\mudrun.exe (32-bit)
+           - C:\\Program Files\\Mudfish Cloud VPN\\mudrun.exe (64-bit)
+           - Alternative installation paths
+        4. Fallback executable path
         
         Returns:
             Optional[str]: Path to the found launcher if available, None otherwise.
@@ -202,23 +248,31 @@ class MudfishProcess:
         """
         logger.info("Finding Mudfish Launcher...")
 
-        # Try shortcut first, then fallback to executable
-        mudfish_launcher = (
-            self.mudfish_launcher_lnk if os.path.exists(self.mudfish_launcher_lnk)
-            else self.mudrun_exe
+        # Priority order: Shortcut first (user's preferred method), then direct executables
+        # Check locations in order of preference
+        locations_to_check = [
+            self.mudfish_launcher_lnk,  # Shortcut - user's preferred method
+            r"C:\Program Files (x86)\Mudfish Cloud VPN\mudrun_headless.exe",  # Headless version
+            r"C:\Program Files\Mudfish Cloud VPN\mudrun_headless.exe",        # 64-bit headless version
+            r"C:\Program Files (x86)\Mudfish Cloud VPN\mudrun.exe",           # 32-bit installation
+            r"C:\Program Files\Mudfish Cloud VPN\mudrun.exe",                 # 64-bit installation
+            r"C:\Program Files (x86)\Mudfish\mudrun.exe",                     # Alternative 32-bit path
+            r"C:\Program Files\Mudfish\mudrun.exe",                           # Alternative 64-bit path
+            self.mudrun_exe  # Fallback path
+        ]
+        
+        for location in locations_to_check:
+            if os.path.exists(location):
+                logger.info("Found Mudfish launcher: %s", location)
+                return location
+
+        # If none found, log all checked locations
+        locations_checked = "\n- ".join(locations_to_check)
+        logger.error(
+            "Could not find Mudfish Launcher!\n"
+            "Locations checked:\n"
+            "- %s\n",
+            locations_checked
         )
-
-        if not os.path.exists(mudfish_launcher):
-            locations = [self.mudfish_launcher_lnk, self.mudrun_exe]
-            locations_checked = "\n- ".join(locations)
-            logger.error(
-                "Could not find Mudfish Launcher!\n"
-                "Locations checked:\n"
-                "- %s\n",
-                locations_checked
-            )
-            return None
-
-        logger.info("Found Mudfish launcher: %s", mudfish_launcher)
-        return mudfish_launcher
+        return None
 

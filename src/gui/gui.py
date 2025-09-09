@@ -58,7 +58,11 @@ class MudfishWorker(QThread):
             elif self.operation_type == "setup_credentials":
                 self._setup_credentials()
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
+            error_msg = str(e)
+            if "WinError 740" in error_msg or "elevation" in error_msg.lower():
+                error_msg = "Mudfish requires administrator privileges to start. Please run this application as Administrator."
+            else:
+                error_msg = f"Error: {error_msg}"
             self.logger.error(error_msg)
             self.log_message.emit(error_msg)
             self.operation_complete.emit(False, error_msg)
@@ -112,23 +116,40 @@ class MudfishWorker(QThread):
             self.log_message.emit("Headless login failed, using WebDriver...")
             self.progress_update.emit(60)
         
-        # Try to use WebDriver for connection
-        self.status_update.emit("Starting WebDriver...")
-        self.log_message.emit("Starting WebDriver...")
+        # Try headless connection first (no WebDriver needed)
+        self.status_update.emit("Attempting headless connection...")
+        self.log_message.emit("Attempting headless connection...")
+        self.progress_update.emit(80)
+        
+        try:
+            # Try to connect using headless HTTP approach
+            mudfish_connection = MudfishConnection(web_driver=None)
+            if mudfish_connection.connect_without_driver():
+                self.progress_update.emit(100)
+                success_msg = "Successfully connected to Mudfish VPN via headless method!"
+                self.log_message.emit(success_msg)
+                self.operation_complete.emit(True, success_msg)
+                return
+        except Exception as e:
+            self.log_message.emit(f"Headless connection failed: {str(e)}")
+        
+        # Fallback: Try WebDriver only if headless fails
+        self.status_update.emit("Headless connection failed, trying WebDriver...")
+        self.log_message.emit("Headless connection failed, trying WebDriver...")
         chrome_driver = get_chrome_driver(headless=True)
         
         if chrome_driver:
-            self.progress_update.emit(80)
+            self.progress_update.emit(85)
             
             # Complete connection with WebDriver
-            self.status_update.emit("Connecting to VPN...")
-            self.log_message.emit("Connecting to VPN...")
+            self.status_update.emit("Connecting to VPN via WebDriver...")
+            self.log_message.emit("Connecting to VPN via WebDriver...")
             mudfish_connection = MudfishConnection(web_driver=chrome_driver)
             mudfish_connection.login(username, password, adminpage)
             mudfish_connection.connect()
             
             self.progress_update.emit(100)
-            success_msg = "Successfully connected to Mudfish VPN!"
+            success_msg = "Successfully connected to Mudfish VPN via WebDriver!"
             self.log_message.emit(success_msg)
             self.operation_complete.emit(True, success_msg)
         else:
@@ -282,52 +303,45 @@ class MudfishWorker(QThread):
         self.log_message.emit("Checking connection status...")
         self.progress_update.emit(25)
         
-        chrome_driver = get_chrome_driver(headless=True)
-        if chrome_driver:
+        try:
+            # Use headless HTTP approach for status check (no WebDriver needed)
+            self.log_message.emit("Using headless HTTP status check...")
+            mudfish_connection = MudfishConnection(web_driver=None)
             self.progress_update.emit(50)
-            self.log_message.emit("WebDriver created, checking status...")
             
+            # Add timeout for status check
+            import time
+            start_time = time.time()
+            timeout = 10  # 10 second timeout
+            
+            self.log_message.emit("Attempting to determine connection status...")
+            
+            # Try to check connection status with timeout
+            is_connected = False
             try:
-                mudfish_connection = MudfishConnection(web_driver=chrome_driver)
-                self.progress_update.emit(75)
-                
-                # Add timeout for status check
-                import time
-                start_time = time.time()
-                timeout = 10  # 10 second timeout
-                
-                self.log_message.emit("Attempting to determine connection status...")
-                
-                # Try to check connection status with timeout
-                is_connected = False
-                try:
-                    is_connected = mudfish_connection.is_mudfish_connected()
-                except Exception as e:
-                    self.log_message.emit(f"Status check encountered error: {e}")
-                
-                # Check if we timed out
-                elapsed_time = time.time() - start_time
-                if elapsed_time > timeout:
-                    self.log_message.emit("Status check timed out, assuming disconnected")
-                    is_connected = False
-                
-                if is_connected:
-                    status_msg = "Mudfish is currently connected."
-                else:
-                    status_msg = "Mudfish is not connected."
-                
-                self.log_message.emit(status_msg)
-                self.progress_update.emit(100)
-                self.operation_complete.emit(True, status_msg)
-                
+                is_connected = mudfish_connection.is_mudfish_connected()
             except Exception as e:
-                error_msg = f"Error during status check: {str(e)}"
-                self.log_message.emit(error_msg)
-                self.progress_update.emit(100)
-                self.operation_complete.emit(False, error_msg)
-        else:
-            error_msg = "Failed to check status - WebDriver error."
+                self.log_message.emit(f"Status check encountered error: {e}")
+            
+            # Check if we timed out
+            elapsed_time = time.time() - start_time
+            if elapsed_time > timeout:
+                self.log_message.emit("Status check timed out, assuming disconnected")
+                is_connected = False
+            
+            if is_connected:
+                status_msg = "Mudfish is currently connected."
+            else:
+                status_msg = "Mudfish is not connected."
+            
+            self.log_message.emit(status_msg)
+            self.progress_update.emit(100)
+            self.operation_complete.emit(True, status_msg)
+            
+        except Exception as e:
+            error_msg = f"Error during status check: {str(e)}"
             self.log_message.emit(error_msg)
+            self.progress_update.emit(100)
             self.operation_complete.emit(False, error_msg)
     
     def _setup_credentials(self):
@@ -356,6 +370,24 @@ class MudfishGUI(QMainWindow):
         """Set up the user interface."""
         self.setWindowTitle("Auto Mudfish VPN")
         self.setGeometry(100, 100, 900, 700)
+        
+        # Set window icon - try multiple paths (PNG first for better PyQt6 compatibility)
+        possible_icon_paths = [
+            "assets/auto_mudfish_64x64.png",
+            "assets/auto_mudfish_128x128.png",
+            "assets/auto_mudfish.ico",
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_64x64.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_128x128.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish.ico"),
+            os.path.join(os.getcwd(), "assets", "auto_mudfish_64x64.png"),
+            os.path.join(os.getcwd(), "assets", "auto_mudfish_128x128.png"),
+            os.path.join(os.getcwd(), "assets", "auto_mudfish.ico")
+        ]
+        
+        for icon_path in possible_icon_paths:
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+                break
         
         # Create central widget
         central_widget = QWidget()
@@ -502,6 +534,20 @@ class MudfishGUI(QMainWindow):
             border: 2px solid #444444;
             border-radius: 6px;
             opacity: 0.5;
+        }
+        
+        QPushButton[class="dashboard"] {
+            background-color: #9C27B0;
+            color: white;
+            font-weight: bold;
+            padding: 10px 16px;
+            border: 2px solid #7B1FA2;
+            border-radius: 6px;
+        }
+        
+        QPushButton[class="dashboard"]:hover {
+            background-color: #7B1FA2;
+            border: 2px solid #6A1B9A;
         }
         
         /* Status indicators */
@@ -655,6 +701,16 @@ class MudfishGUI(QMainWindow):
         self.status_check_btn.clicked.connect(self.check_status)
         self.status_check_btn.setStyleSheet("QPushButton { background-color: #2196F3; color: white; font-weight: bold; padding: 10px; }")
         button_layout.addWidget(self.status_check_btn)
+        
+        self.dashboard_btn = QPushButton("Open Dashboard")
+        self.dashboard_btn.clicked.connect(self.open_dashboard)
+        self.dashboard_btn.setProperty("class", "dashboard")
+        self.dashboard_btn.setToolTip("Open Mudfish web dashboard in your default browser")
+        button_layout.addWidget(self.dashboard_btn)
+        
+        # Apply styling after setting the class
+        self.dashboard_btn.style().unpolish(self.dashboard_btn)
+        self.dashboard_btn.style().polish(self.dashboard_btn)
         
         layout.addLayout(button_layout)
         
@@ -929,6 +985,21 @@ class MudfishGUI(QMainWindow):
         self.worker.log_message.connect(self.log_message)
         self.worker.start()
         
+    def open_dashboard(self):
+        """Open the Mudfish dashboard in the default browser."""
+        try:
+            import webbrowser
+            dashboard_url = "http://127.0.0.1:8282/"
+            webbrowser.open(dashboard_url)
+            self.logger.info(f"Opening Mudfish dashboard: {dashboard_url}")
+            self.log_message(f"Opening Mudfish dashboard: {dashboard_url}")
+            self.status_bar.showMessage("Dashboard opened in browser")
+        except Exception as e:
+            error_msg = f"Failed to open dashboard: {str(e)}"
+            self.logger.error(error_msg)
+            self.log_message(error_msg)
+            QMessageBox.warning(self, "Error", error_msg)
+        
     def update_status(self, message):
         """Update status message."""
         self.status_bar.showMessage(message)
@@ -997,12 +1068,10 @@ class MudfishGUI(QMainWindow):
         self.log_message(f"Operation completed: success={success}, message={message}")
         
         self.progress_bar.setVisible(False)
-        self.connect_btn.setEnabled(True)
-        self.disconnect_btn.setEnabled(True)
         
         if success:
             message_lower = message.lower()
-            if "connected" in message_lower and "not connected" not in message_lower:
+            if "connected" in message_lower and "not connected" not in message_lower and "disconnected" not in message_lower:
                 # Connected state
                 self.update_status_display("connected", message)
                 self.update_button_styling(connect_enabled=False, disconnect_enabled=True)

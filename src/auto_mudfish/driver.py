@@ -330,13 +330,10 @@ class ChromeDriver(webdriver.Chrome):
             >>> options.add_argument("--disable-images")
             >>> driver = ChromeDriver(options=options, headless=True)
         """
-        # Store options for potential future use
-        self.options = options
-        
         # Configure headless mode if requested
         if headless:
-            chrome_options = self.options or webdriver.ChromeOptions()
-            chrome_options.add_argument("--headless=new")  # Use new headless mode
+            chrome_options = options or webdriver.ChromeOptions()
+            chrome_options.add_argument("--headless")  # Use headless mode
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
@@ -346,8 +343,28 @@ class ChromeDriver(webdriver.Chrome):
             chrome_options.add_argument("--disable-extensions")
             chrome_options.add_argument("--disable-plugins")
             chrome_options.add_argument("--disable-images")
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_argument("--disable-background-timer-throttling")
+            chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+            chrome_options.add_argument("--disable-renderer-backgrounding")
+            chrome_options.add_argument("--disable-background-networking")
+            chrome_options.add_argument("--disable-default-apps")
+            chrome_options.add_argument("--disable-sync")
+            chrome_options.add_argument("--hide-scrollbars")
+            chrome_options.add_argument("--mute-audio")
+            chrome_options.add_argument("--disable-logging")
+            chrome_options.add_argument("--log-level=3")
+            chrome_options.add_argument("--silent")
+            chrome_options.add_argument("--disable-background-mode")
+            chrome_options.add_argument("--disable-component-extensions-with-background-pages")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+            chrome_options.add_experimental_option("detach", True)
             # Note: We need JavaScript for Mudfish interface, so don't disable it
             self.options = chrome_options
+        else:
+            # Store options for potential future use
+            self.options = options
         
         # Create service with executable path if provided
         if executable_path:

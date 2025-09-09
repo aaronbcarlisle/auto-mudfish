@@ -37,7 +37,7 @@ def build_executable():
         '--onefile',  # Create a single executable file
         '--windowed',  # No console window (GUI only)
         '--name=AutoMudfish',
-        '--icon=assets/icon.ico',  # Application icon (if available)
+        '--icon=assets/auto_mudfish.ico',  # Application icon
         '--add-data=src/auto_mudfish;auto_mudfish',  # Include the package
         '--hidden-import=PyQt6.QtCore',
         '--hidden-import=PyQt6.QtGui',
@@ -64,7 +64,7 @@ def build_executable():
     ]
     
     # Remove icon parameter if icon file doesn't exist
-    if not os.path.exists('assets/icon.ico'):
+    if not os.path.exists('assets/auto_mudfish.ico'):
         cmd = [arg for arg in cmd if not arg.startswith('--icon')]
     
     try:
@@ -80,10 +80,21 @@ def build_executable():
 
 
 def create_installer_script():
-    """Create a simple installer script."""
+    """Create a simple installer script with admin privileges."""
     installer_content = '''@echo off
 echo Auto Mudfish VPN Installer
 echo ==========================
+
+REM Check for admin privileges
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    echo Running with administrator privileges...
+) else (
+    echo This installer requires administrator privileges.
+    echo Please right-click and select "Run as administrator"
+    pause
+    exit /b 1
+)
 
 echo Installing Auto Mudfish VPN...
 
@@ -91,19 +102,30 @@ REM Create application directory
 if not exist "%PROGRAMFILES%\\Auto Mudfish" mkdir "%PROGRAMFILES%\\Auto Mudfish"
 
 REM Copy executable
+echo Copying executable...
 copy "AutoMudfish.exe" "%PROGRAMFILES%\\Auto Mudfish\\"
 
 REM Create desktop shortcut
 echo Creating desktop shortcut...
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\\Desktop\\Auto Mudfish.lnk'); $Shortcut.TargetPath = '%PROGRAMFILES%\\Auto Mudfish\\AutoMudfish.exe'; $Shortcut.Save()"
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\\Desktop\\Auto Mudfish.lnk'); $Shortcut.TargetPath = '%PROGRAMFILES%\\Auto Mudfish\\AutoMudfish.exe'; $Shortcut.IconLocation = '%PROGRAMFILES%\\Auto Mudfish\\AutoMudfish.exe,0'; $Shortcut.Save()"
 
 REM Create start menu shortcut
 echo Creating start menu shortcut...
 if not exist "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Auto Mudfish" mkdir "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Auto Mudfish"
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Auto Mudfish\\Auto Mudfish.lnk'); $Shortcut.TargetPath = '%PROGRAMFILES%\\Auto Mudfish\\AutoMudfish.exe'; $Shortcut.Save()"
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Auto Mudfish\\Auto Mudfish.lnk'); $Shortcut.TargetPath = '%PROGRAMFILES%\\Auto Mudfish\\AutoMudfish.exe'; $Shortcut.IconLocation = '%PROGRAMFILES%\\Auto Mudfish\\AutoMudfish.exe,0'; $Shortcut.Save()"
 
-echo Installation completed!
-echo You can now run Auto Mudfish from the desktop shortcut or start menu.
+echo.
+echo Installation completed successfully!
+echo.
+echo Auto Mudfish VPN has been installed to:
+echo   %PROGRAMFILES%\\Auto Mudfish\\
+echo.
+echo Shortcuts have been created on:
+echo   - Desktop
+echo   - Start Menu
+echo.
+echo You can now run Auto Mudfish from either shortcut.
+echo.
 pause
 '''
     

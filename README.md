@@ -20,9 +20,19 @@ A secure, automated solution for connecting to Mudfish VPN with encrypted creden
 # Install dependencies
 pip install -r requirements.txt
 
-# Launch GUI
+# Launch GUI (requires administrator privileges)
 python gui.py
+
+# OR use the provided batch file to run as administrator
+run_as_admin.bat
 ```
+
+**⚠️ Important:** The GUI requires administrator privileges to launch Mudfish. You can either:
+- Right-click the command prompt and select "Run as administrator", then run `python gui.py`
+- Use the provided `run_as_admin.bat` file (Windows batch)
+- Use the provided `simple_launch.ps1` file (PowerShell - reliable, brief console window)
+- Use the provided `launch_clean.ps1` file (PowerShell - launches GUI and closes console)
+- Use the provided `launch_silent.ps1` file (PowerShell - silent launcher)
 
 The GUI provides:
 - **Easy credential setup** with secure storage
