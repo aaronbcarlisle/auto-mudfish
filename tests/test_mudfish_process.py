@@ -1,4 +1,11 @@
 
+"""
+Unit tests for the Mudfish process management module.
+
+This module contains tests for the MudfishProcess class and related functionality
+including process detection, launcher management, and process control.
+"""
+
 import unittest
 from unittest.mock import patch, MagicMock
 import os
@@ -6,6 +13,7 @@ import os
 from auto_mudfish.process import MudfishProcess
 
 class TestMudfishProcess(unittest.TestCase):
+    """Test cases for Mudfish process management functionality."""
 
     @patch('psutil.process_iter')
     def test_is_mudfish_running_true(self, mock_process_iter):

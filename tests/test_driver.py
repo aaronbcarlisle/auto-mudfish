@@ -1,4 +1,11 @@
 
+"""
+Unit tests for the Chrome WebDriver management module.
+
+This module contains tests for the ChromeDriver class and related functionality
+including driver creation, error handling, and fallback mechanisms.
+"""
+
 import unittest
 from unittest.mock import patch, MagicMock
 import os
@@ -14,6 +21,7 @@ from get_chrome_driver.enums.os_platform import OsPlatform
 
 
 class TestDriver(unittest.TestCase):
+    """Test cases for Chrome WebDriver functionality."""
 
     @patch('auto_mudfish.driver.GetChromeDriver')
     @patch('auto_mudfish.driver.os.path.join')

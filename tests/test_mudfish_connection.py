@@ -1,4 +1,11 @@
 
+"""
+Unit tests for the Mudfish connection management module.
+
+This module contains tests for the MudfishConnection class and related functionality
+including login, connection status checking, and WebDriver interactions.
+"""
+
 import unittest
 from unittest.mock import patch, MagicMock
 import requests
@@ -9,6 +16,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException
 
 class TestMudfishConnection(unittest.TestCase):
+    """Test cases for Mudfish connection functionality."""
 
     def setUp(self):
         self.connection = MudfishConnection()

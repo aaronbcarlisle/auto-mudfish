@@ -354,9 +354,9 @@ class MudfishWorker(QThread):
 class MudfishGUI(QMainWindow):
     """Main GUI window for Auto Mudfish."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.worker = None
+        self.worker: Optional[MudfishWorker] = None
         self.settings = QSettings("AutoMudfish", "Settings")
         self.setup_ui()
         self.setup_logging()
@@ -366,7 +366,7 @@ class MudfishGUI(QMainWindow):
         # Check status on startup
         QTimer.singleShot(1000, self.check_status_on_startup)
         
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         """Set up the user interface."""
         self.setWindowTitle("Auto Mudfish VPN")
         self.setGeometry(100, 100, 900, 700)
@@ -416,7 +416,7 @@ class MudfishGUI(QMainWindow):
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
         
-    def setup_dark_theme(self):
+    def setup_dark_theme(self) -> None:
         """Apply dark theme stylesheet."""
         dark_stylesheet = """
         QMainWindow {
@@ -923,7 +923,7 @@ class MudfishGUI(QMainWindow):
         self.update_status_display("checking", "Checking...")
         self.check_status()
         
-    def connect_mudfish(self):
+    def connect_mudfish(self) -> None:
         """Start connecting to Mudfish VPN."""
         self.logger.info("Connect button clicked!")
         self.log_message("Connect button clicked!")
@@ -951,7 +951,7 @@ class MudfishGUI(QMainWindow):
         self.logger.info("Worker started for connect operation")
         self.log_message("Worker started for connect operation")
         
-    def disconnect_mudfish(self):
+    def disconnect_mudfish(self) -> None:
         """Disconnect from Mudfish VPN."""
         if self.worker and self.worker.isRunning():
             return
@@ -968,7 +968,7 @@ class MudfishGUI(QMainWindow):
         self.worker.log_message.connect(self.log_message)
         self.worker.start()
         
-    def check_status(self):
+    def check_status(self) -> None:
         """Check Mudfish connection status."""
         if self.worker and self.worker.isRunning():
             return
