@@ -136,7 +136,9 @@ class MudfishWorker(QThread):
         # Fallback: Try WebDriver only if headless fails
         self.status_update.emit("Headless connection failed, trying WebDriver...")
         self.log_message.emit("Headless connection failed, trying WebDriver...")
-        chrome_driver = get_chrome_driver(headless=True)
+        # Get show_browser setting from the GUI
+        show_browser = getattr(self, 'show_browser_cb', None) and self.show_browser_cb.isChecked()
+        chrome_driver = get_chrome_driver(headless=not show_browser)
         
         if chrome_driver:
             self.progress_update.emit(85)
@@ -908,6 +910,12 @@ class MudfishGUI(QMainWindow):
         self.start_with_windows_cb.setChecked(self.settings.value("start_with_windows", False, type=bool))
         self.debug_mode_cb.setChecked(self.settings.value("debug_mode", False, type=bool))
         
+        # Connect settings to functionality
+        self.auto_connect_cb.toggled.connect(self.on_auto_connect_changed)
+        self.minimize_to_tray_cb.toggled.connect(self.on_minimize_to_tray_changed)
+        self.start_with_windows_cb.toggled.connect(self.on_start_with_windows_changed)
+        self.debug_mode_cb.toggled.connect(self.on_debug_mode_changed)
+        
     def save_settings(self):
         """Save settings to persistent storage."""
         self.settings.setValue("show_browser", self.show_browser_cb.isChecked())
@@ -1177,6 +1185,65 @@ class MudfishGUI(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save logs: {str(e)}")
                 
+    def on_auto_connect_changed(self, checked):
+        """Handle auto-connect setting change."""
+        if checked:
+            self.log_message("Auto-connect enabled - will attempt to connect on startup")
+        else:
+            self.log_message("Auto-connect disabled")
+        self.save_settings()
+    
+    def on_minimize_to_tray_changed(self, checked):
+        """Handle minimize to tray setting change."""
+        if checked:
+            self.log_message("Minimize to tray enabled")
+        else:
+            self.log_message("Minimize to tray disabled")
+        self.save_settings()
+    
+    def on_start_with_windows_changed(self, checked):
+        """Handle start with Windows setting change."""
+        if checked:
+            self.log_message("Start with Windows enabled - will add to startup")
+            self._add_to_startup()
+        else:
+            self.log_message("Start with Windows disabled - will remove from startup")
+            self._remove_from_startup()
+        self.save_settings()
+    
+    def on_debug_mode_changed(self, checked):
+        """Handle debug mode setting change."""
+        if checked:
+            self.log_message("Debug mode enabled - detailed logging activated")
+            logging.getLogger().setLevel(logging.DEBUG)
+        else:
+            self.log_message("Debug mode disabled - normal logging")
+            logging.getLogger().setLevel(logging.INFO)
+        self.save_settings()
+    
+    def _add_to_startup(self):
+        """Add application to Windows startup."""
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            app_path = os.path.abspath(sys.executable)
+            winreg.SetValueEx(key, "AutoMudfish", 0, winreg.REG_SZ, f'"{app_path}"')
+            winreg.CloseKey(key)
+            self.log_message("Added to Windows startup successfully")
+        except Exception as e:
+            self.log_message(f"Failed to add to startup: {e}")
+    
+    def _remove_from_startup(self):
+        """Remove application from Windows startup."""
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            winreg.DeleteValue(key, "AutoMudfish")
+            winreg.CloseKey(key)
+            self.log_message("Removed from Windows startup successfully")
+        except Exception as e:
+            self.log_message(f"Failed to remove from startup: {e}")
+
     def closeEvent(self, event):
         """Handle application close event."""
         self.save_settings()
