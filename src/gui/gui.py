@@ -374,9 +374,59 @@ class MudfishGUI(QMainWindow):
         }
         
         QPushButton:disabled {
+            background-color: #1a1a1a;
+            color: #444444;
+            border: 2px solid #333333;
+            opacity: 0.4;
+        }
+        
+        /* Enhanced button states */
+        QPushButton[class="connect-enabled"] {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            padding: 12px 20px;
+            border: 2px solid #45a049;
+            border-radius: 6px;
+        }
+        
+        QPushButton[class="connect-enabled"]:hover {
+            background-color: #45a049;
+            border: 2px solid #3d8b40;
+        }
+        
+        QPushButton[class="connect-disabled"] {
             background-color: #2b2b2b;
             color: #666666;
-            border: 1px solid #444444;
+            font-weight: normal;
+            padding: 12px 20px;
+            border: 2px solid #444444;
+            border-radius: 6px;
+            opacity: 0.5;
+        }
+        
+        QPushButton[class="disconnect-enabled"] {
+            background-color: #f44336;
+            color: white;
+            font-weight: bold;
+            padding: 12px 20px;
+            border: 2px solid #da190b;
+            border-radius: 6px;
+        }
+        
+        QPushButton[class="disconnect-enabled"]:hover {
+            background-color: #da190b;
+            border: 2px solid #c1170b;
+        }
+        
+        QPushButton[class="disconnect-disabled"] {
+            background-color: #2b2b2b;
+            color: #666666;
+            font-weight: normal;
+            padding: 12px 20px;
+            border: 2px solid #444444;
+            border-radius: 6px;
+            opacity: 0.5;
         }
         
         /* Status indicators */
@@ -517,14 +567,14 @@ class MudfishGUI(QMainWindow):
         
         self.connect_btn = QPushButton("Connect")
         self.connect_btn.clicked.connect(self.connect_mudfish)
-        self.connect_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 10px; }")
         button_layout.addWidget(self.connect_btn)
         
         self.disconnect_btn = QPushButton("Disconnect")
         self.disconnect_btn.clicked.connect(self.disconnect_mudfish)
-        self.disconnect_btn.setStyleSheet("QPushButton { background-color: #f44336; color: white; font-weight: bold; padding: 10px; }")
-        self.disconnect_btn.setEnabled(False)
         button_layout.addWidget(self.disconnect_btn)
+        
+        # Set initial button states (will be updated after status check)
+        self.update_button_styling(connect_enabled=False, disconnect_enabled=False)
         
         self.status_check_btn = QPushButton("Check Status")
         self.status_check_btn.clicked.connect(self.check_status)
@@ -756,8 +806,7 @@ class MudfishGUI(QMainWindow):
         self.log_message("Starting connect operation...")
         
         self.update_status_display("checking", "Connecting...")
-        self.connect_btn.setEnabled(False)
-        self.disconnect_btn.setEnabled(False)
+        self.update_button_styling(connect_enabled=False, disconnect_enabled=False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         
@@ -777,8 +826,7 @@ class MudfishGUI(QMainWindow):
             return
             
         self.update_status_display("checking", "Disconnecting...")
-        self.connect_btn.setEnabled(False)
-        self.disconnect_btn.setEnabled(False)
+        self.update_button_styling(connect_enabled=False, disconnect_enabled=False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         
@@ -795,6 +843,7 @@ class MudfishGUI(QMainWindow):
             return
             
         self.update_status_display("checking", "Checking...")
+        self.update_button_styling(connect_enabled=False, disconnect_enabled=False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         
@@ -839,6 +888,30 @@ class MudfishGUI(QMainWindow):
         self.status_label.style().unpolish(self.status_label)
         self.status_label.style().polish(self.status_label)
         
+    def update_button_styling(self, connect_enabled, disconnect_enabled):
+        """Update button styling based on enabled/disabled state."""
+        # Update Connect button
+        if connect_enabled:
+            self.connect_btn.setProperty("class", "connect-enabled")
+            self.connect_btn.setEnabled(True)
+        else:
+            self.connect_btn.setProperty("class", "connect-disabled")
+            self.connect_btn.setEnabled(False)
+            
+        # Update Disconnect button
+        if disconnect_enabled:
+            self.disconnect_btn.setProperty("class", "disconnect-enabled")
+            self.disconnect_btn.setEnabled(True)
+        else:
+            self.disconnect_btn.setProperty("class", "disconnect-disabled")
+            self.disconnect_btn.setEnabled(False)
+            
+        # Refresh button styling
+        self.connect_btn.style().unpolish(self.connect_btn)
+        self.connect_btn.style().polish(self.connect_btn)
+        self.disconnect_btn.style().unpolish(self.disconnect_btn)
+        self.disconnect_btn.style().polish(self.disconnect_btn)
+        
     def log_message(self, message):
         """Add message to log display."""
         self.log_display.append(message)
@@ -857,18 +930,17 @@ class MudfishGUI(QMainWindow):
             if "connected" in message_lower and "not connected" not in message_lower:
                 # Connected state
                 self.update_status_display("connected", message)
-                self.connect_btn.setEnabled(False)
-                self.disconnect_btn.setEnabled(True)
+                self.update_button_styling(connect_enabled=False, disconnect_enabled=True)
                 self.logger.info("Setting buttons: Connect disabled, Disconnect enabled")
             else:
                 # Disconnected or not connected state
                 self.update_status_display("disconnected", message)
-                self.connect_btn.setEnabled(True)
-                self.disconnect_btn.setEnabled(False)
+                self.update_button_styling(connect_enabled=True, disconnect_enabled=False)
                 self.logger.info("Setting buttons: Connect enabled, Disconnect disabled (default/not connected)")
         else:
             # Error state
             self.update_status_display("error", "Error")
+            self.update_button_styling(connect_enabled=True, disconnect_enabled=False)
             QMessageBox.warning(self, "Operation Failed", message)
             
         self.status_bar.showMessage("Ready")
