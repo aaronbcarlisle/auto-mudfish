@@ -148,7 +148,8 @@ def main(
     password: Optional[str] = None,
     adminpage: Optional[str] = None,
     launcher: Optional[str] = None,
-    use_stored: bool = False
+    use_stored: bool = False,
+    show_browser: bool = False
 ) -> None:
     """
     Main function that orchestrates Mudfish VPN automation.
@@ -169,6 +170,7 @@ def main(
         launcher (Optional[str]): Custom path to the Mudfish launcher.
                                 If None, auto-detects the launcher.
         use_stored (bool): If True, attempt to load credentials from secure storage.
+        show_browser (bool): If True, show browser window (for debugging).
     
     Raises:
         SystemExit: If Mudfish cannot be started or critical errors occur.
@@ -217,7 +219,7 @@ def main(
         logger.warning("Headless login failed, falling back to WebDriver login...")
 
     # Step 3: Fallback to WebDriver-based login and connection
-    chrome_driver = get_chrome_driver()
+    chrome_driver = get_chrome_driver(headless=not show_browser)
     if not chrome_driver:
         logger.error("Chrome Driver is needed to continue, aborting!")
         sys.exit(1)
@@ -247,6 +249,7 @@ Examples:
   %(prog)s -u myuser -p mypassword -v
   %(prog)s --setup                    # Store credentials securely
   %(prog)s --use-stored               # Use stored credentials
+  %(prog)s --use-stored --show-browser # Use stored credentials with visible browser
   %(prog)s --show-credentials         # Show stored credential info
   %(prog)s --clear-credentials        # Clear stored credentials
         """
@@ -303,6 +306,11 @@ Examples:
         action="store_true",
         help="Enable verbose logging"
     )
+    parser.add_argument(
+        "--show-browser",
+        action="store_true",
+        help="Show browser window (for debugging)"
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -341,7 +349,8 @@ Examples:
             password=args.password,
             adminpage=args.adminpage,
             launcher=args.launcher,
-            use_stored=args.use_stored
+            use_stored=args.use_stored,
+            show_browser=args.show_browser
         )
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")

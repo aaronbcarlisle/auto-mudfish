@@ -94,6 +94,9 @@ python main.py --use-stored -v
 
 # Use stored credentials with custom admin page
 python main.py --use-stored -a http://192.168.1.1:8282/signin.html
+
+# Show browser window (for debugging)
+python main.py --use-stored --show-browser
 ```
 
 ### Batch Scripts
@@ -141,6 +144,12 @@ options:
 - Regularly clear credentials with `--clear-credentials` if needed
 - Never share the `.auto_mudfish` folder
 - Use `--show-credentials` to verify stored information
+
+### Browser Behavior
+- **Headless by Default**: Browser runs invisibly in the background
+- **No Pop-ups**: No browser windows appear during normal operation
+- **Debug Mode**: Use `--show-browser` to see browser window for troubleshooting
+- **Automatic Cleanup**: Browser closes automatically after completion
 
 ## 🏗️ Architecture
 
