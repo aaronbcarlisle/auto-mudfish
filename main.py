@@ -252,6 +252,7 @@ Examples:
   %(prog)s --use-stored --show-browser # Use stored credentials with visible browser
   %(prog)s --show-credentials         # Show stored credential info
   %(prog)s --clear-credentials        # Clear stored credentials
+  %(prog)s --cleanup-chromedriver     # Clean up old ChromeDriver versions
         """
     )
 
@@ -311,6 +312,11 @@ Examples:
         action="store_true",
         help="Show browser window (for debugging)"
     )
+    parser.add_argument(
+        "--cleanup-chromedriver",
+        action="store_true",
+        help="Clean up old ChromeDriver versions"
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -331,6 +337,12 @@ Examples:
     if args.clear_credentials:
         success = clear_credentials()
         sys.exit(0 if success else 1)
+    
+    if args.cleanup_chromedriver:
+        from auto_mudfish.driver import _cleanup_old_chromedrivers
+        _cleanup_old_chromedrivers()
+        print("✅ ChromeDriver cleanup completed!")
+        sys.exit(0)
     
     # Validate arguments for main function
     if not args.use_stored and (not args.username or not args.password):

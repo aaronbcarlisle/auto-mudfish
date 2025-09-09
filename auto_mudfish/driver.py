@@ -24,6 +24,37 @@ from get_chrome_driver.enums.os_platform import OsPlatform
 logger = logging.getLogger("auto_mudfish.driver")
 
 
+def _cleanup_old_chromedrivers():
+    """Clean up old ChromeDriver versions to save space."""
+    try:
+        home_dir = os.path.expanduser("~")
+        chromedriver_dir = os.path.join(home_dir, ".auto_mudfish", "chromedriver")
+        
+        if not os.path.exists(chromedriver_dir):
+            return
+        
+        # Get all version directories
+        version_dirs = [d for d in os.listdir(chromedriver_dir) 
+                       if os.path.isdir(os.path.join(chromedriver_dir, d))]
+        
+        if len(version_dirs) <= 3:  # Keep last 3 versions
+            return
+        
+        # Sort by version and remove oldest
+        version_dirs.sort(reverse=True)
+        for old_version in version_dirs[3:]:
+            old_dir = os.path.join(chromedriver_dir, old_version)
+            try:
+                import shutil
+                shutil.rmtree(old_dir)
+                logger.debug("Cleaned up old ChromeDriver version: %s", old_version)
+            except Exception as e:
+                logger.debug("Failed to clean up old ChromeDriver %s: %s", old_version, e)
+                
+    except Exception as e:
+        logger.debug("Failed to clean up old ChromeDrivers: %s", e)
+
+
 def _download_specific_chromedriver(headless: bool = True) -> Optional[webdriver.Chrome]:
     """
     Download a specific ChromeDriver version that matches the installed Chrome version.
@@ -123,6 +154,23 @@ def _download_specific_chromedriver(headless: bool = True) -> Optional[webdriver
             download_url = f"https://chromedriver.storage.googleapis.com/{driver_version}/chromedriver_win32.zip"
             logger.warning("Using major version as fallback: %s", driver_version)
         
+        # Create a permanent directory for ChromeDriver in user's home directory
+        home_dir = os.path.expanduser("~")
+        chromedriver_dir = os.path.join(home_dir, ".auto_mudfish", "chromedriver")
+        os.makedirs(chromedriver_dir, exist_ok=True)
+        
+        # Create a versioned subdirectory
+        version_dir = os.path.join(chromedriver_dir, driver_version)
+        os.makedirs(version_dir, exist_ok=True)
+        
+        chromedriver_exe = os.path.join(version_dir, "chromedriver.exe")
+        
+        # Check if we already have this version
+        if os.path.exists(chromedriver_exe):
+            logger.info("Using existing ChromeDriver: %s", chromedriver_exe)
+            return ChromeDriver(headless=headless, executable_path=chromedriver_exe)
+        
+        # Download and extract to permanent location
         with tempfile.TemporaryDirectory() as temp_dir:
             logger.info("Downloading ChromeDriver from: %s", download_url)
             response = requests.get(download_url, timeout=30)
@@ -161,8 +209,22 @@ def _download_specific_chromedriver(headless: bool = True) -> Optional[webdriver
                 logger.error("Could not find chromedriver.exe in downloaded archive")
                 return None
             
+            # Copy to permanent location
+            import shutil
+            try:
+                shutil.copy2(chromedriver_path, chromedriver_exe)
+                logger.info("ChromeDriver saved to: %s", chromedriver_exe)
+            except Exception as e:
+                logger.error("Failed to copy ChromeDriver to permanent location: %s", e)
+                return None
+            
             # Create ChromeDriver instance
-            return ChromeDriver(headless=headless, executable_path=chromedriver_path)
+            driver = ChromeDriver(headless=headless, executable_path=chromedriver_exe)
+            
+            # Clean up old versions
+            _cleanup_old_chromedrivers()
+            
+            return driver
             
     except Exception as e:
         logger.error("Failed to download specific ChromeDriver version: %s", e)
