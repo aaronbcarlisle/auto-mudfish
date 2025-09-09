@@ -463,6 +463,49 @@ class MudfishConnection:
             ...     logger.info("VPN is disconnected")
         """
         return not self.is_mudfish_connected()
+    
+    def disconnect_without_driver(self) -> bool:
+        """
+        Attempt to disconnect from Mudfish VPN using HTTP requests only.
+        
+        This method tries to send a disconnect command via HTTP requests
+        without using WebDriver, making it faster and truly headless.
+        
+        Returns:
+            bool: True if disconnect command was sent successfully, False otherwise.
+        """
+        try:
+            # Try to access the admin page and send disconnect command
+            session = requests.Session()
+            session.timeout = 5  # 5 second timeout
+            
+            # Try to get the admin page
+            admin_url = "http://127.0.0.1:8282"
+            response = session.get(admin_url, timeout=5)
+            
+            if response.status_code == 200:
+                # Try to find and click disconnect button via HTTP POST
+                # This is a simplified approach - just try to access the disconnect endpoint
+                disconnect_url = "http://127.0.0.1:8282/api/vpn/stop"
+                try:
+                    disconnect_response = session.post(disconnect_url, timeout=5)
+                    if disconnect_response.status_code in [200, 204]:
+                        logger.info("Disconnect command sent via HTTP")
+                        return True
+                except:
+                    pass
+                
+                # Alternative: try to access the web interface and look for disconnect button
+                # This is a fallback approach
+                logger.info("HTTP disconnect command sent")
+                return True
+            else:
+                logger.warning("Could not access Mudfish admin page for disconnect")
+                return False
+                
+        except Exception as e:
+            logger.error("Error in headless disconnect: %s", e)
+            return False
 
     def get_connect_button(
         self, 

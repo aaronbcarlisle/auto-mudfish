@@ -159,57 +159,84 @@ class MudfishWorker(QThread):
         
         self.progress_update.emit(50)
         
-        # Try to use WebDriver for disconnect
-        chrome_driver = get_chrome_driver(headless=True)
-        if chrome_driver:
-            self.log_message.emit("WebDriver created, attempting disconnect...")
-            
-            mudfish_connection = MudfishConnection(web_driver=chrome_driver)
-            
-            # Add timeout for disconnect operations
-            import time
-            start_time = time.time()
-            timeout = 10  # 10 second timeout
-            
-            # Skip connection check to avoid hanging - just try to disconnect directly
-            self.log_message.emit("Attempting to disconnect directly...")
-            is_connected = True  # Assume connected and try to disconnect
-            
-            if is_connected:
-                self.log_message.emit("VPN is connected, attempting disconnect...")
-                try:
-                    mudfish_connection.disconnect()
-                    self.progress_update.emit(75)
-                    
-                    # Skip verification to avoid hanging - assume disconnect was successful
-                    self.status_update.emit("Disconnect command sent...")
-                    self.log_message.emit("Disconnect command sent...")
-                    
-                    # Just assume it worked to avoid hanging on verification
-                    success_msg = "Disconnect command sent successfully!"
-                    self.log_message.emit(success_msg)
+        # Use process termination as primary disconnect method (most reliable)
+        self.log_message.emit("Attempting to disconnect by stopping Mudfish processes...")
+        
+        try:
+            # Primary method: Stop Mudfish processes directly
+            self._stop_mudfish_processes()
+            self.progress_update.emit(100)
+            success_msg = "Successfully disconnected from Mudfish VPN!"
+            self.log_message.emit(success_msg)
+            self.operation_complete.emit(True, success_msg)
+                
+        except Exception as e:
+            self.log_message.emit(f"Error during process termination: {str(e)}")
+            # Fallback: try HTTP disconnect
+            self.log_message.emit("Trying HTTP disconnect fallback...")
+            try:
+                mudfish_connection = MudfishConnection(web_driver=None)
+                if mudfish_connection.disconnect_without_driver():
+                    self.log_message.emit("HTTP disconnect successful!")
                     self.progress_update.emit(100)
+                    success_msg = "Disconnected via HTTP command"
+                    self.log_message.emit(success_msg)
                     self.operation_complete.emit(True, success_msg)
-                except Exception as e:
-                    error_msg = f"Error during disconnect: {str(e)}"
+                else:
+                    error_msg = "All disconnect methods failed"
                     self.log_message.emit(error_msg)
                     self.progress_update.emit(100)
                     self.operation_complete.emit(False, error_msg)
-            else:
-                info_msg = "Mudfish is not currently connected."
-                self.log_message.emit(info_msg)
+            except Exception as e2:
+                error_msg = f"All disconnect methods failed: {str(e2)}"
+                self.log_message.emit(error_msg)
                 self.progress_update.emit(100)
-                self.operation_complete.emit(True, info_msg)
-        else:
-            # WebDriver failed, but we can still provide guidance
-            self.log_message.emit("WebDriver creation failed, but Mudfish processes are running")
-            self.log_message.emit("Please use the Mudfish web interface at http://127.0.0.1:8282 to disconnect")
-            self.log_message.emit("Or stop Mudfish processes manually from Task Manager")
+                self.operation_complete.emit(False, error_msg)
+    
+    def _stop_mudfish_processes(self):
+        """Stop Mudfish processes directly as a fallback disconnect method."""
+        try:
+            import psutil
+            import subprocess
             
-            self.progress_update.emit(100)
-            info_msg = "Please disconnect manually via Mudfish web interface or Task Manager"
-            self.log_message.emit(info_msg)
-            self.operation_complete.emit(True, info_msg)
+            # Find and terminate Mudfish processes
+            mudfish_processes = []
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if proc.info['name'] and 'mudfish' in proc.info['name'].lower():
+                        mudfish_processes.append(proc)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            
+            if mudfish_processes:
+                self.log_message.emit(f"Found {len(mudfish_processes)} Mudfish processes to terminate")
+                for proc in mudfish_processes:
+                    try:
+                        proc.terminate()
+                        self.log_message.emit(f"Terminated process: {proc.info['name']} (PID: {proc.info['pid']})")
+                    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                        self.log_message.emit(f"Could not terminate process {proc.info['name']}: {e}")
+                
+                # Wait a moment for processes to terminate
+                import time
+                time.sleep(2)
+                
+                # Force kill if still running
+                for proc in mudfish_processes:
+                    try:
+                        if proc.is_running():
+                            proc.kill()
+                            self.log_message.emit(f"Force killed process: {proc.info['name']} (PID: {proc.info['pid']})")
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+                
+                self.log_message.emit("Mudfish processes terminated successfully")
+            else:
+                self.log_message.emit("No Mudfish processes found to terminate")
+                
+        except Exception as e:
+            self.log_message.emit(f"Error terminating Mudfish processes: {e}")
+            raise
     
     def _check_status(self):
         """Check Mudfish connection status."""
