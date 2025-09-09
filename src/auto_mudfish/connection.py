@@ -287,8 +287,11 @@ class MudfishConnection:
         """
         Check if Mudfish VPN is currently connected.
         
-        This method determines the connection status by looking for multiple
-        indicators of an active connection, including button states and page content.
+        This method uses multiple approaches to determine connection status:
+        1. Check if Mudfish processes are running
+        2. Check if Mudfish web interface is accessible
+        3. Use HTTP requests to check status (faster than WebDriver)
+        4. Fall back to WebDriver if needed
         
         Returns:
             bool: True if Mudfish is connected, False otherwise.
@@ -298,95 +301,158 @@ class MudfishConnection:
             >>> if connection.is_mudfish_connected():
             ...     logger.info("VPN is connected")
         """
-        if not self.web_driver:
-            logger.warning("No WebDriver available for connection status check")
-            return False
-            
         try:
             import time
             start_time = time.time()
             timeout = 5  # 5 second timeout for status check
-            # Method 1: Check for disconnect button
-            if time.time() - start_time > timeout:
-                logger.warning("Status check timeout during disconnect button check")
-                return False
-                
-            disconnect_btn = self.get_disconnect_button(use_stop_condition=True)
-            if disconnect_btn and disconnect_btn.is_displayed():
-                logger.info("Found disconnect button - VPN appears connected")
-                return True
             
-            # Method 2: Check for connect button (if it exists, we're disconnected)
-            if time.time() - start_time > timeout:
-                logger.warning("Status check timeout during connect button check")
-                return False
+            # Method 1: Check if Mudfish processes are running
+            logger.debug("Checking Mudfish processes...")
+            if self._is_mudfish_running():
+                logger.info("Mudfish processes are running")
                 
-            connect_btn = self.get_connect_button(use_start_condition=True)
-            if connect_btn and connect_btn.is_displayed():
-                logger.info("Found connect button - VPN appears disconnected")
-                return False
-            
-            # Method 3: Check page content for connection indicators
-            if time.time() - start_time > timeout:
-                logger.warning("Status check timeout during page content check")
-                return False
-                
-            page_source = self.web_driver.page_source.lower()
-            connected_indicators = [
-                "connected", "vpn is on", "disconnect", "stop vpn", 
-                "vpn status: connected", "status: connected"
-            ]
-            disconnected_indicators = [
-                "disconnected", "vpn is off", "connect", "start vpn",
-                "vpn status: disconnected", "status: disconnected"
-            ]
-            
-            for indicator in connected_indicators:
-                if indicator in page_source:
-                    logger.info("Found connection indicator in page: %s", indicator)
-                    return True
+                # Method 2: Check if web interface is accessible
+                if self._is_mudfish_web_interface_accessible():
+                    logger.info("Mudfish web interface is accessible")
                     
-            for indicator in disconnected_indicators:
-                if indicator in page_source:
-                    logger.info("Found disconnection indicator in page: %s", indicator)
+                    # Method 3: Try HTTP-based status check (faster)
+                    if time.time() - start_time < timeout:
+                        http_status = self._check_connection_via_http()
+                        if http_status is not None:
+                            logger.info("HTTP status check result: %s", "connected" if http_status else "disconnected")
+                            return http_status
+                    
+                    # Method 4: Fall back to WebDriver if available and not timed out
+                    if self.web_driver and time.time() - start_time < timeout:
+                        logger.debug("Falling back to WebDriver status check...")
+                        return self._check_connection_via_webdriver()
+                    
+                    # If we can't determine status but processes are running, assume connected
+                    logger.info("Mudfish processes running and web interface accessible - assuming connected")
+                    return True
+                else:
+                    logger.info("Mudfish processes running but web interface not accessible - assuming disconnected")
                     return False
-            
-            # Method 4: Check for specific Mudfish status elements
-            if time.time() - start_time > timeout:
-                logger.warning("Status check timeout during status elements check")
+            else:
+                logger.info("Mudfish processes not running - disconnected")
                 return False
                 
-            try:
-                status_elements = self.web_driver.find_elements(By.CLASS_NAME, "status")
-                for element in status_elements:
-                    text = element.text.lower()
-                    if "connected" in text:
-                        logger.info("Found status element indicating connection: %s", text)
-                        return True
-                    elif "disconnected" in text:
-                        logger.info("Found status element indicating disconnection: %s", text)
-                        return False
-            except Exception as e:
-                logger.debug("Could not check status elements: %s", e)
-            
-            # If we get here, we couldn't determine status within timeout
-            elapsed_time = time.time() - start_time
-            if elapsed_time > timeout:
-                logger.warning("Status check timed out after %.2f seconds - assuming disconnected", elapsed_time)
-            else:
-                logger.warning("Could not determine connection status - no clear indicators found")
-            return False
-            
         except Exception as e:
             logger.error("Error checking connection status: %s", e)
+            return False
+    
+    def _is_mudfish_running(self) -> bool:
+        """Check if Mudfish processes are running."""
+        try:
+            import psutil
+            mudfish_processes = ["mudrun.exe", "mudfish.exe", "mudflow.exe"]
+            running_processes = [p.name() for p in psutil.process_iter()]
+            return any(process in running_processes for process in mudfish_processes)
+        except Exception as e:
+            logger.debug("Error checking Mudfish processes: %s", e)
+            return False
+    
+    def _is_mudfish_web_interface_accessible(self) -> bool:
+        """Check if Mudfish web interface is accessible."""
+        try:
+            import requests
+            # Try the default port first
+            test_urls = [
+                "http://127.0.0.1:8282",
+                "http://localhost:8282"
+            ]
+            
+            for url in test_urls:
+                try:
+                    response = requests.get(url, timeout=2)
+                    if response.status_code == 200:
+                        logger.debug("Mudfish web interface accessible at %s", url)
+                        return True
+                except requests.exceptions.RequestException:
+                    continue
+            
+            logger.debug("Mudfish web interface not accessible")
+            return False
+        except Exception as e:
+            logger.debug("Error checking web interface accessibility: %s", e)
+            return False
+    
+    def _check_connection_via_http(self) -> Optional[bool]:
+        """Check connection status via HTTP requests (faster than WebDriver)."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            # Try to get the status from the web interface
+            test_urls = [
+                "http://127.0.0.1:8282",
+                "http://localhost:8282"
+            ]
+            
+            for url in test_urls:
+                try:
+                    response = requests.get(url, timeout=3)
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        page_text = soup.get_text().lower()
+                        
+                        # Look for connection indicators
+                        connected_indicators = [
+                            "connected", "vpn is on", "disconnect", "stop vpn",
+                            "vpn status: connected", "status: connected"
+                        ]
+                        disconnected_indicators = [
+                            "disconnected", "vpn is off", "connect", "start vpn",
+                            "vpn status: disconnected", "status: disconnected"
+                        ]
+                        
+                        for indicator in connected_indicators:
+                            if indicator in page_text:
+                                logger.debug("Found connection indicator in HTTP response: %s", indicator)
+                                return True
+                                
+                        for indicator in disconnected_indicators:
+                            if indicator in page_text:
+                                logger.debug("Found disconnection indicator in HTTP response: %s", indicator)
+                                return False
+                                
+                except requests.exceptions.RequestException:
+                    continue
+            
+            return None  # Could not determine status
+        except Exception as e:
+            logger.debug("Error in HTTP status check: %s", e)
+            return None
+    
+    def _check_connection_via_webdriver(self) -> bool:
+        """Check connection status via WebDriver (fallback method)."""
+        if not self.web_driver:
+            return False
+            
+        try:
+            # Quick check for disconnect button
+            disconnect_btn = self.get_disconnect_button(use_stop_condition=True)
+            if disconnect_btn and disconnect_btn.is_displayed():
+                logger.debug("Found disconnect button via WebDriver - connected")
+                return True
+            
+            # Quick check for connect button
+            connect_btn = self.get_connect_button(use_start_condition=True)
+            if connect_btn and connect_btn.is_displayed():
+                logger.debug("Found connect button via WebDriver - disconnected")
+                return False
+            
+            return False
+        except Exception as e:
+            logger.debug("Error in WebDriver status check: %s", e)
             return False
 
     def is_mudfish_disconnected(self) -> bool:
         """
         Check if Mudfish VPN is currently disconnected.
         
-        This method determines the disconnection status by looking for the
-        presence of the connect button, which indicates no active connection.
+        This method uses the same improved approach as is_mudfish_connected()
+        but returns the opposite result.
         
         Returns:
             bool: True if Mudfish is disconnected, False otherwise.
@@ -396,9 +462,7 @@ class MudfishConnection:
             >>> if connection.is_mudfish_disconnected():
             ...     logger.info("VPN is disconnected")
         """
-        if not self.web_driver:
-            return True
-        return bool(self.get_connect_button(use_start_condition=True))
+        return not self.is_mudfish_connected()
 
     def get_connect_button(
         self, 
