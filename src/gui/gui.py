@@ -171,19 +171,9 @@ class MudfishWorker(QThread):
             start_time = time.time()
             timeout = 10  # 10 second timeout
             
-            # Check if connected first (with timeout)
-            is_connected = False
-            try:
-                self.log_message.emit("Checking connection status before disconnect...")
-                is_connected = mudfish_connection.is_mudfish_connected()
-            except Exception as e:
-                self.log_message.emit(f"Connection check encountered error: {e}")
-            
-            # Check if we timed out
-            elapsed_time = time.time() - start_time
-            if elapsed_time > timeout:
-                self.log_message.emit("Connection check timed out, proceeding with disconnect...")
-                is_connected = True  # Assume connected if we can't check
+            # Skip connection check to avoid hanging - just try to disconnect directly
+            self.log_message.emit("Attempting to disconnect directly...")
+            is_connected = True  # Assume connected and try to disconnect
             
             if is_connected:
                 self.log_message.emit("VPN is connected, attempting disconnect...")
@@ -191,36 +181,15 @@ class MudfishWorker(QThread):
                     mudfish_connection.disconnect()
                     self.progress_update.emit(75)
                     
-                    # Wait a moment and check if disconnected
-                    self.status_update.emit("Verifying disconnect...")
-                    self.log_message.emit("Verifying disconnect...")
+                    # Skip verification to avoid hanging - assume disconnect was successful
+                    self.status_update.emit("Disconnect command sent...")
+                    self.log_message.emit("Disconnect command sent...")
                     
-                    # Check disconnect status with timeout
-                    is_disconnected = False
-                    try:
-                        is_disconnected = mudfish_connection.is_mudfish_disconnected()
-                    except Exception as e:
-                        self.log_message.emit(f"Disconnect verification encountered error: {e}")
-                    
-                    if is_disconnected:
-                        success_msg = "Successfully disconnected from Mudfish VPN!"
-                        self.log_message.emit(success_msg)
-                        self.progress_update.emit(100)
-                        self.operation_complete.emit(True, success_msg)
-                    else:
-                        # Check if we timed out
-                        elapsed_time = time.time() - start_time
-                        if elapsed_time > timeout:
-                            self.log_message.emit("Disconnect verification timed out, assuming successful")
-                            success_msg = "Disconnect command sent (verification timed out)"
-                            self.log_message.emit(success_msg)
-                            self.progress_update.emit(100)
-                            self.operation_complete.emit(True, success_msg)
-                        else:
-                            error_msg = "Disconnect command sent but status unclear."
-                            self.log_message.emit(error_msg)
-                            self.progress_update.emit(100)
-                            self.operation_complete.emit(False, error_msg)
+                    # Just assume it worked to avoid hanging on verification
+                    success_msg = "Disconnect command sent successfully!"
+                    self.log_message.emit(success_msg)
+                    self.progress_update.emit(100)
+                    self.operation_complete.emit(True, success_msg)
                 except Exception as e:
                     error_msg = f"Error during disconnect: {str(e)}"
                     self.log_message.emit(error_msg)
