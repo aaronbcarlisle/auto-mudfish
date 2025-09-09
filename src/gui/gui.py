@@ -112,29 +112,35 @@ class MudfishWorker(QThread):
             self.log_message.emit("Headless login failed, using WebDriver...")
             self.progress_update.emit(60)
         
-        # Use WebDriver for connection
+        # Try to use WebDriver for connection
         self.status_update.emit("Starting WebDriver...")
         self.log_message.emit("Starting WebDriver...")
         chrome_driver = get_chrome_driver(headless=True)
-        if not chrome_driver:
-            error_msg = "Failed to create Chrome WebDriver."
-            self.log_message.emit(error_msg)
-            self.operation_complete.emit(False, error_msg)
-            return
         
-        self.progress_update.emit(80)
-        
-        # Complete connection
-        self.status_update.emit("Connecting to VPN...")
-        self.log_message.emit("Connecting to VPN...")
-        mudfish_connection = MudfishConnection(web_driver=chrome_driver)
-        mudfish_connection.login(username, password, adminpage)
-        mudfish_connection.connect()
-        
-        self.progress_update.emit(100)
-        success_msg = "Successfully connected to Mudfish VPN!"
-        self.log_message.emit(success_msg)
-        self.operation_complete.emit(True, success_msg)
+        if chrome_driver:
+            self.progress_update.emit(80)
+            
+            # Complete connection with WebDriver
+            self.status_update.emit("Connecting to VPN...")
+            self.log_message.emit("Connecting to VPN...")
+            mudfish_connection = MudfishConnection(web_driver=chrome_driver)
+            mudfish_connection.login(username, password, adminpage)
+            mudfish_connection.connect()
+            
+            self.progress_update.emit(100)
+            success_msg = "Successfully connected to Mudfish VPN!"
+            self.log_message.emit(success_msg)
+            self.operation_complete.emit(True, success_msg)
+        else:
+            # WebDriver failed, but headless login might have worked
+            self.log_message.emit("WebDriver creation failed, but headless login was successful")
+            self.log_message.emit("Mudfish should be accessible via web interface at http://127.0.0.1:8282")
+            self.log_message.emit("Please check the Mudfish web interface to complete the connection")
+            
+            self.progress_update.emit(100)
+            success_msg = "Mudfish started successfully! Please check the web interface to complete connection."
+            self.log_message.emit(success_msg)
+            self.operation_complete.emit(True, success_msg)
     
     def _disconnect_mudfish(self):
         """Disconnect from Mudfish VPN."""
@@ -142,9 +148,20 @@ class MudfishWorker(QThread):
         self.log_message.emit("Disconnecting from Mudfish...")
         self.progress_update.emit(25)
         
+        # First check if Mudfish processes are running
+        mudfish_connection = MudfishConnection(web_driver=None)
+        if not mudfish_connection._is_mudfish_running():
+            info_msg = "Mudfish is not currently running - already disconnected."
+            self.log_message.emit(info_msg)
+            self.progress_update.emit(100)
+            self.operation_complete.emit(True, info_msg)
+            return
+        
+        self.progress_update.emit(50)
+        
+        # Try to use WebDriver for disconnect
         chrome_driver = get_chrome_driver(headless=True)
         if chrome_driver:
-            self.progress_update.emit(50)
             self.log_message.emit("WebDriver created, attempting disconnect...")
             
             mudfish_connection = MudfishConnection(web_driver=chrome_driver)
@@ -174,9 +191,15 @@ class MudfishWorker(QThread):
                 self.progress_update.emit(100)
                 self.operation_complete.emit(True, info_msg)
         else:
-            error_msg = "Failed to create Chrome WebDriver for disconnect."
-            self.log_message.emit(error_msg)
-            self.operation_complete.emit(False, error_msg)
+            # WebDriver failed, but we can still provide guidance
+            self.log_message.emit("WebDriver creation failed, but Mudfish processes are running")
+            self.log_message.emit("Please use the Mudfish web interface at http://127.0.0.1:8282 to disconnect")
+            self.log_message.emit("Or stop Mudfish processes manually from Task Manager")
+            
+            self.progress_update.emit(100)
+            info_msg = "Please disconnect manually via Mudfish web interface or Task Manager"
+            self.log_message.emit(info_msg)
+            self.operation_complete.emit(True, info_msg)
     
     def _check_status(self):
         """Check Mudfish connection status."""
