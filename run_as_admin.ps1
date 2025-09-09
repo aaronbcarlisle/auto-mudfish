@@ -32,4 +32,7 @@ if ($args -contains "-ScriptDir") {
 Set-Location $scriptDir
 
 # Run the GUI
-Start-Process python -ArgumentList "gui.py" -WindowStyle Hidden
+Write-Host "Starting Auto Mudfish GUI..." -ForegroundColor Green
+Start-Process python -ArgumentList "src/gui/gui.py"
+Write-Host "GUI started successfully!" -ForegroundColor Green
+Write-Host "The GUI window should appear shortly." -ForegroundColor Cyan

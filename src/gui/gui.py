@@ -22,8 +22,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt, QSettings
 from PyQt6.QtGui import QIcon, QFont, QPixmap
 
-# Add the current directory to Python path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add the src directory to Python path for imports
+src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, src_dir)
 
 from auto_mudfish.connection import MudfishConnection
 from auto_mudfish.driver import get_chrome_driver
@@ -116,28 +117,40 @@ class MudfishWorker(QThread):
             self.log_message.emit("Headless login failed, using WebDriver...")
             self.progress_update.emit(60)
         
-        # Try headless connection first (no WebDriver needed)
-        self.status_update.emit("Attempting headless connection...")
-        self.log_message.emit("Attempting headless connection...")
-        self.progress_update.emit(80)
-        
-        try:
-            # Try to connect using headless HTTP approach
-            mudfish_connection = MudfishConnection(web_driver=None)
-            if mudfish_connection.connect_without_driver():
-                self.progress_update.emit(100)
-                success_msg = "Successfully connected to Mudfish VPN via headless method!"
-                self.log_message.emit(success_msg)
-                self.operation_complete.emit(True, success_msg)
-                return
-        except Exception as e:
-            self.log_message.emit(f"Headless connection failed: {str(e)}")
-        
-        # Fallback: Try WebDriver only if headless fails
-        self.status_update.emit("Headless connection failed, trying WebDriver...")
-        self.log_message.emit("Headless connection failed, trying WebDriver...")
-        # Get show_browser setting from the GUI
+        # Check if user wants to see browser window
         show_browser = getattr(self, 'show_browser_cb', None) and self.show_browser_cb.isChecked()
+        
+        if show_browser:
+            # User wants to see browser, skip headless and go straight to WebDriver
+            self.status_update.emit("Show browser enabled, using WebDriver...")
+            self.log_message.emit("Show browser enabled, using WebDriver...")
+            self.progress_update.emit(80)
+        else:
+            # Try headless connection first (no WebDriver needed)
+            self.status_update.emit("Attempting headless connection...")
+            self.log_message.emit("Attempting headless connection...")
+            self.progress_update.emit(80)
+            
+            try:
+                # Try to connect using headless HTTP approach
+                mudfish_connection = MudfishConnection(web_driver=None)
+                if mudfish_connection.connect_without_driver():
+                    self.progress_update.emit(100)
+                    success_msg = "Successfully connected to Mudfish VPN via headless method!"
+                    self.log_message.emit(success_msg)
+                    self.operation_complete.emit(True, success_msg)
+                    return
+            except Exception as e:
+                self.log_message.emit(f"Headless connection failed: {str(e)}")
+        
+        # Fallback: Try WebDriver (either because headless failed or user wants to see browser)
+        if not show_browser:
+            self.status_update.emit("Headless connection failed, trying WebDriver...")
+            self.log_message.emit("Headless connection failed, trying WebDriver...")
+        else:
+            self.status_update.emit("Using WebDriver with visible browser...")
+            self.log_message.emit("Using WebDriver with visible browser...")
+        
         chrome_driver = get_chrome_driver(headless=not show_browser)
         
         if chrome_driver:
@@ -362,6 +375,7 @@ class MudfishGUI(QMainWindow):
         self.settings = QSettings("AutoMudfish", "Settings")
         self.setup_ui()
         self.setup_logging()
+        self.setup_system_tray()
         self.load_settings()
         self.setup_dark_theme()
         
@@ -373,17 +387,20 @@ class MudfishGUI(QMainWindow):
         self.setWindowTitle("Auto Mudfish VPN")
         self.setGeometry(100, 100, 900, 700)
         
-        # Set window icon - try multiple paths (PNG first for better PyQt6 compatibility)
+        # Set window icon - try multiple paths (prioritize our custom icons)
         possible_icon_paths = [
-            "assets/auto_mudfish_64x64.png",
-            "assets/auto_mudfish_128x128.png",
             "assets/auto_mudfish.ico",
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_64x64.png"),
+            "assets/auto_mudfish_256x256.png",
+            "assets/auto_mudfish_128x128.png",
+            "assets/auto_mudfish_64x64.png",
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_proper.ico"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_256x256.png"),
             os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_128x128.png"),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish.ico"),
-            os.path.join(os.getcwd(), "assets", "auto_mudfish_64x64.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_64x64.png"),
+            os.path.join(os.getcwd(), "assets", "auto_mudfish_proper.ico"),
+            os.path.join(os.getcwd(), "assets", "auto_mudfish_256x256.png"),
             os.path.join(os.getcwd(), "assets", "auto_mudfish_128x128.png"),
-            os.path.join(os.getcwd(), "assets", "auto_mudfish.ico")
+            os.path.join(os.getcwd(), "assets", "auto_mudfish_64x64.png")
         ]
         
         for icon_path in possible_icon_paths:
@@ -418,6 +435,83 @@ class MudfishGUI(QMainWindow):
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
         
+    def setup_system_tray(self) -> None:
+        """Set up system tray icon and menu."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            self.log_message("System tray not available")
+            return
+        
+        # Create system tray icon
+        self.tray_icon = QSystemTrayIcon(self)
+        
+        # Set icon (try multiple paths, prioritize our custom icons)
+        possible_icon_paths = [
+            "assets/auto_mudfish.ico",
+            "assets/auto_mudfish_64x64.png",
+            "assets/auto_mudfish_128x128.png",
+            "assets/auto_mudfish_256x256.png",
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_proper.ico"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_64x64.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_128x128.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "auto_mudfish_256x256.png"),
+        ]
+        
+        for icon_path in possible_icon_paths:
+            if os.path.exists(icon_path):
+                self.tray_icon.setIcon(QIcon(icon_path))
+                break
+        
+        # Create tray menu
+        tray_menu = QMenu()
+        
+        # Show/Hide action
+        self.show_action = tray_menu.addAction("Show Auto Mudfish")
+        self.show_action.triggered.connect(self.show)
+        
+        # Connect action
+        self.tray_connect_action = tray_menu.addAction("Connect")
+        self.tray_connect_action.triggered.connect(self.connect_mudfish)
+        
+        # Disconnect action
+        self.tray_disconnect_action = tray_menu.addAction("Disconnect")
+        self.tray_disconnect_action.triggered.connect(self.disconnect_mudfish)
+        
+        tray_menu.addSeparator()
+        
+        # Quit action
+        quit_action = tray_menu.addAction("Quit")
+        quit_action.triggered.connect(self.close)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self.tray_icon_activated)
+        self.tray_icon.show()
+        
+        # Set tooltip
+        self.tray_icon.setToolTip("Auto Mudfish VPN")
+    
+    def tray_icon_activated(self, reason):
+        """Handle system tray icon activation."""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.show()
+            self.raise_()
+            self.activateWindow()
+    
+    def changeEvent(self, event):
+        """Handle window state changes."""
+        if event.type() == event.Type.WindowStateChange:
+            if self.isMinimized():
+                # Check if minimize to tray is enabled
+                if hasattr(self, 'minimize_to_tray_cb') and self.minimize_to_tray_cb.isChecked():
+                    self.hide()
+                    if hasattr(self, 'tray_icon'):
+                        self.tray_icon.showMessage(
+                            "Auto Mudfish VPN",
+                            "Minimized to system tray",
+                            QSystemTrayIcon.MessageIcon.Information,
+                            2000
+                        )
+        super().changeEvent(event)
+
     def setup_dark_theme(self) -> None:
         """Apply dark theme stylesheet."""
         dark_stylesheet = """

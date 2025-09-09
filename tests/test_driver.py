@@ -16,6 +16,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options as ChromeOptionsSelenium
 
 from get_chrome_driver import GetChromeDriver
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from auto_mudfish.driver import get_chrome_driver, ChromeDriver
 from get_chrome_driver.enums.os_platform import OsPlatform
 

@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.2)'
+        required: true
+        default: '1.0.2'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION=${{ github.event.inputs.version }}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+    
+    - name: Build executable
+      run: |
+        python scripts/build_exe.py ${{ steps.get_version.outputs.version }}
+    
+    - name: Create release package
+      run: |
+        echo "Creating release package for version ${{ steps.get_version.outputs.version }}"
+        # The build script already creates the release package
+    
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: auto-mudfish-v${{ steps.get_version.outputs.version }}
+        path: releases/v${{ steps.get_version.outputs.version }}/
+    
+    - name: Create GitHub Release
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          releases/v${{ steps.get_version.outputs.version }}/*.exe
+          releases/v${{ steps.get_version.outputs.version }}/*.bat
+          releases/v${{ steps.get_version.outputs.version }}/*.txt
+          releases/v${{ steps.get_version.outputs.version }}/*.md
+        body_path: releases/v${{ steps.get_version.outputs.version }}/RELEASE_NOTES_v${{ steps.get_version.outputs.version }}.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

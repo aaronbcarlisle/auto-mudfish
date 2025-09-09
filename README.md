@@ -2,46 +2,66 @@
 
 A secure, automated solution for connecting to Mudfish VPN with encrypted credential storage and comprehensive automation features.
 
-## ✨ Features
+## Features
 
-- **🔐 Secure Credential Storage** - Encrypted using Windows DPAPI
-- **🤖 Full Automation** - One-click VPN connection
-- **🌐 Multiple Connection Methods** - HTTP requests and WebDriver fallback
-- **📱 Process Management** - Automatic Mudfish launcher detection and startup
-- **🛡️ Security First** - No plain text passwords, user-specific encryption
-- **📊 Comprehensive Logging** - Detailed operation logs and error reporting
-- **🧪 Full Test Coverage** - 38 unit tests ensuring reliability
+- **Secure Credential Storage** - Encrypted using Windows DPAPI
+- **Full Automation** - One-click VPN connection
+- **Multiple Connection Methods** - HTTP requests and WebDriver fallback
+- **Process Management** - Automatic Mudfish launcher detection and startup
+- **Security First** - No plain text passwords, user-specific encryption
+- **Comprehensive Logging** - Detailed operation logs and error reporting
+- **Full Test Coverage** - 38 unit tests ensuring reliability
 
-## 🚀 Quick Start
+## Quick Start
 
-### Option 1: GUI Application (Recommended)
+### Option 1: Download Executable (Recommended for Users)
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+**For users who just want to use the application:**
 
-# Launch GUI (requires administrator privileges)
-python gui.py
+1. **Download the latest release** from the [releases page](https://github.com/aaronbcarlisle/auto-mudfish/tree/main/releases)
+2. **Extract the files** from the version folder (e.g., `v1.0.1/`)
+3. **Right-click `install.bat`** and select "Run as administrator"
+4. **Follow the installation wizard** to install Auto Mudfish
+5. **Launch from desktop shortcut** or Start Menu
 
-# OR use the provided batch file to run as administrator
-run_as_admin.bat
-```
+**Note:** The installer requires administrator privileges to install the application and create shortcuts. After installation, you can run Auto Mudfish normally, but it will request administrator privileges when connecting to Mudfish.
 
-**⚠️ Important:** The GUI requires administrator privileges to launch Mudfish. You can either:
-- Right-click the command prompt and select "Run as administrator", then run `python gui.py`
-- Use the provided `run_as_admin.bat` file (Windows batch)
-- Use the provided `simple_launch.ps1` file (PowerShell - reliable, brief console window)
-- Use the provided `launch_clean.ps1` file (PowerShell - launches GUI and closes console)
-- Use the provided `launch_silent.ps1` file (PowerShell - silent launcher)
+The installer will:
+- Install Auto Mudfish to `C:\Program Files\Auto Mudfish\`
+- Create desktop and Start Menu shortcuts
+- Set up the application for easy access
 
-The GUI provides:
+**Features:**
 - **Easy credential setup** with secure storage
 - **One-click VPN connection** 
 - **Real-time status monitoring**
 - **Detailed logs and troubleshooting**
 - **Settings and preferences**
 
-### Option 2: Command Line Interface
+![Auto Mudfish VPN GUI](assets/gui-screenshot.png)
+*The Auto Mudfish VPN GUI showing connection status and controls*
+
+### Option 2: Python Development Setup
+
+**For developers or users who prefer to run from source:**
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch GUI (requires administrator privileges)
+python src/gui/gui.py
+
+# OR use the provided PowerShell script to run as administrator
+run_as_admin.ps1
+```
+
+**Important:** The GUI requires administrator privileges to launch Mudfish. You can either:
+- Right-click the command prompt and select "Run as administrator", then run `python src/gui/gui.py`
+- Use the provided `run_as_admin.ps1` file (PowerShell - recommended)
+- For testing without elevation, use `run_gui.ps1` (but Mudfish connection will require admin privileges)
+
+### Option 3: Command Line Interface
 
 ```bash
 # Clone the repository
@@ -52,105 +72,67 @@ cd auto-mudfish
 pip install -r requirements.txt
 
 # First time setup
-python main.py --setup
+python src/main.py --setup
 
 # Connect to VPN
-python main.py --use-stored
+python src/main.py --use-stored
 ```
 
-### Option 3: Executable Distribution
-
-For users without Python:
-
-```bash
-# Build executable
-scripts\build.bat
-
-# Or manually
-python scripts\build_exe.py
-```
-
-This creates a standalone executable that can be distributed without requiring Python installation.
-
-### Option 4: Installer Package
-
-For easy distribution and installation:
-
-```bash
-# Build installer
-scripts\build_installer.bat
-
-# Or manually
-python scripts\build_installer.py
-```
-
-This creates a professional installer package with:
-- **Graphical Installer**: PyQt6-based installation wizard
-- **Simple Installer**: Automated batch script installer
-- **Complete Package**: Ready for distribution
-
-The installer package includes:
-- Step-by-step installation wizard
-- Customizable installation options
-- Automatic shortcut creation
-- Uninstaller generation
-- System integration
-
-### Option 5: Unified Launcher
+### Option 4: Unified Launcher
 
 ```bash
 # Launch GUI
-python launcher.py
+python src/launcher.py
 
 # Launch CLI
-python launcher.py --cli
+python src/launcher.py --cli
 ```
 
-## 📖 Usage
+## Usage
 
 ### Command Line Interface
 
 ```bash
-python main.py [OPTIONS]
+python src/main.py [OPTIONS]
 ```
 
 #### Credential Management
 ```bash
 # Store credentials securely
-python main.py --setup
+python src/main.py --setup
 
 # Use stored credentials
-python main.py --use-stored
+python src/main.py --use-stored
 
 # View stored credential info (password hidden)
-python main.py --show-credentials
+python src/main.py --show-credentials
 
 # Clear stored credentials
-python main.py --clear-credentials
+python src/main.py --clear-credentials
 ```
 
 #### Manual Authentication
 ```bash
 # Use explicit credentials
-python main.py -u username -p password
+python src/main.py -u username -p password
 
 # With custom admin page
-python main.py -u username -p password -a http://192.168.1.1:8282/signin.html
+python src/main.py -u username -p password -a http://192.168.1.1:8282/signin.html
 
 # With custom launcher path
-python main.py -u username -p password -l "C:/Custom/Path/mudfish.exe"
+python src/main.py -u username -p password -l "C:/Custom/Path/mudfish.exe"
 ```
 
 #### Advanced Options
 ```bash
 # Enable verbose logging
-python main.py --use-stored -v
+python src/main.py --use-stored -v
 
 # Use stored credentials with custom admin page
-python main.py --use-stored -a http://192.168.1.1:8282/signin.html
+python src/main.py --use-stored -a http://192.168.1.1:8282/signin.html
 
 # Show browser window (for debugging)
-python main.py --use-stored --show-browser
+python src/main.py --use-stored --show-browser
 ```
 
 ### GUI Application
@@ -177,18 +159,17 @@ The GUI provides an intuitive interface with four main tabs:
 - **Log Management**: Clear logs, save to file
 - **Troubleshooting**: Detailed error information and debugging
 
-### Batch Scripts
+### PowerShell Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `start_mudfish.bat` | Connect using stored credentials (recommended) |
-| `setup_credentials.bat` | Interactive credential setup |
+| `run_as_admin.ps1` | Launch GUI with administrator privileges |
 
 ### Complete Command Reference
 
 ```bash
-usage: main.py [-h] [--setup] [--use-stored] [--show-credentials] [--clear-credentials] 
-               [-u USERNAME] [-p PASSWORD] [-a ADMINPAGE] [-l LAUNCHER] [-v]
+usage: src/main.py [-h] [--setup] [--use-stored] [--show-credentials] [--clear-credentials] 
+                   [-u USERNAME] [-p PASSWORD] [-a ADMINPAGE] [-l LAUNCHER] [-v]
 
 Auto-connect Mudfish VPN
 
@@ -209,7 +190,7 @@ options:
   -v, --verbose         Enable verbose logging
 ```
 
-## 🔒 Security
+## Security
 
 ### Encryption & Storage
 - **Windows DPAPI**: Credentials encrypted using your Windows user account
@@ -229,7 +210,7 @@ options:
 - **Debug Mode**: Use `--show-browser` to see browser window for troubleshooting
 - **Automatic Cleanup**: Browser closes automatically after completion
 
-## 🏗️ Architecture
+## Architecture
 
 The project follows a clean, organized structure:
 
@@ -268,7 +249,7 @@ For detailed structure information, see [docs/STRUCTURE.md](docs/STRUCTURE.md).
 4. **WebDriver Fallback** - Use Chrome automation if HTTP fails
 5. **VPN Connection** - Establish the VPN connection
 
-## 🧪 Testing
+## Testing
 
 Run the complete test suite:
 
@@ -283,7 +264,7 @@ The project includes 38 comprehensive unit tests covering:
 - Process detection
 - Error handling
 
-## 📋 Requirements
+## Requirements
 
 ### System Requirements
 - Windows 10/11
@@ -298,20 +279,26 @@ The project includes 38 comprehensive unit tests covering:
 - `pywin32` - Windows API access
 - `get-chrome-driver` - Automatic ChromeDriver management
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 ```
 auto-mudfish/
-├── auto_mudfish/           # Main package
-│   ├── credentials.py     # Secure credential management
-│   ├── connection.py      # VPN connection logic
-│   ├── driver.py          # WebDriver management
-│   ├── process.py         # Process management
-│   └── automate_mudfish.py # Automation orchestration
-├── tests/                 # Unit tests
-├── main.py               # CLI entry point
-├── start_mudfish.bat     # Convenience batch file
+├── src/                   # Source code
+│   ├── auto_mudfish/     # Main package
+│   │   ├── credentials.py # Secure credential management
+│   │   ├── connection.py  # VPN connection logic
+│   │   ├── driver.py      # WebDriver management
+│   │   ├── process.py     # Process management
+│   │   └── automate_mudfish.py # Automation orchestration
+│   ├── gui/              # GUI application
+│   │   └── gui.py        # PyQt6 GUI
+│   ├── main.py           # CLI entry point
+│   └── launcher.py       # Unified launcher
+├── tests/                # Unit tests
+├── scripts/              # Build and utility scripts
+├── assets/               # Static assets (icons, etc.)
+├── docs/                 # Documentation
 └── requirements.txt      # Dependencies
 ```
 
@@ -321,14 +308,14 @@ auto-mudfish/
 3. Update documentation
 4. Test with both stored and explicit credentials
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
 **"No stored credentials found"**
 ```bash
 # Run setup to store credentials
-python main.py --setup
+python src/main.py --setup
 ```
 
 **"Chrome Driver not found"**
@@ -345,22 +332,22 @@ python main.py --setup
 **"Failed to decrypt credentials"**
 ```bash
 # Clear and re-setup credentials
-python main.py --clear-credentials
-python main.py --setup
+python src/main.py --clear-credentials
+python src/main.py --setup
 ```
 
 ### Debug Mode
 Enable verbose logging for detailed troubleshooting:
 
 ```bash
-python main.py --use-stored -v
+python src/main.py --use-stored -v
 ```
 
-## 📝 License
+## License
 
 This project is open source. Please ensure you comply with Mudfish's terms of service when using this automation tool.
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -368,7 +355,7 @@ This project is open source. Please ensure you comply with Mudfish's terms of se
 4. Ensure all tests pass
 5. Submit a pull request
 
-## 📞 Support
+## Support
 
 For issues and questions:
 1. Check the troubleshooting section

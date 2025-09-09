@@ -183,10 +183,83 @@ For issues and questions, please check the project repository on GitHub.
     print("Created README: dist/README_EXECUTABLE.txt")
 
 
+def create_release_package(version="1.0.1"):
+    """Create a release package in the releases folder."""
+    print(f"Creating release package for version {version}...")
+    
+    # Create version directory
+    release_dir = f"releases/v{version}"
+    os.makedirs(release_dir, exist_ok=True)
+    
+    # Copy files to release directory
+    files_to_copy = [
+        ("dist/AutoMudfish.exe", f"{release_dir}/AutoMudfish.exe"),
+        ("dist/install.bat", f"{release_dir}/install.bat"),
+        ("dist/README_EXECUTABLE.txt", f"{release_dir}/README_EXECUTABLE.txt"),
+    ]
+    
+    for src, dst in files_to_copy:
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+            print(f"Copied {src} to {dst}")
+        else:
+            print(f"Warning: {src} not found, skipping...")
+    
+    # Create release notes
+    release_notes = f"""# Auto Mudfish VPN v{version} Release Notes
+
+## Installation
+1. Run `install.bat` as Administrator to install Auto Mudfish
+2. The application will be installed to `C:\\Program Files\\Auto Mudfish\\`
+3. Desktop and Start Menu shortcuts will be created
+
+## Usage
+1. Launch Auto Mudfish from the desktop shortcut or Start Menu
+2. Go to the "Credentials" tab to set up your Mudfish username and password
+3. Use the "Main" tab to connect/disconnect from Mudfish VPN
+4. Check the "Logs" tab for detailed operation information
+
+## Features
+- **Secure Credential Storage**: Your credentials are encrypted using Windows DPAPI
+- **One-Click Connection**: Connect to Mudfish VPN with a single click
+- **Headless Operation**: No browser windows pop up during operation
+- **Status Monitoring**: Check connection status and view detailed logs
+- **Automatic ChromeDriver Management**: Downloads and manages ChromeDriver automatically
+- **System Tray Support**: Minimize to system tray functionality
+- **Auto-connect on Startup**: Optional automatic connection when Windows starts
+
+## Requirements
+- Windows 10/11
+- Chrome browser installed
+- Internet connection
+
+## Troubleshooting
+- If you encounter ChromeDriver issues, try the "Cleanup Old ChromeDrivers" option in Settings
+- Check the Logs tab for detailed error information
+- Ensure Chrome browser is installed and up to date
+
+## Support
+For issues and questions, please check the project repository on GitHub.
+"""
+    
+    with open(f"{release_dir}/RELEASE_NOTES_v{version}.md", 'w') as f:
+        f.write(release_notes)
+    
+    print(f"Created release package in {release_dir}")
+    return release_dir
+
+
 def main():
     """Main build process."""
     print("Auto Mudfish Executable Builder")
     print("==============================")
+    
+    # Get version from command line or use default
+    version = "1.0.1"
+    if len(sys.argv) > 1:
+        version = sys.argv[1]
+    
+    print(f"Building version: {version}")
     
     # Check if PyInstaller is installed
     try:
@@ -207,15 +280,18 @@ def main():
         create_installer_script()
         create_readme()
         
+        # Create release package
+        release_dir = create_release_package(version)
+        
         print("\nFiles created:")
         print("- dist/AutoMudfish.exe (main executable)")
         print("- dist/install.bat (installer script)")
         print("- dist/README_EXECUTABLE.txt (user documentation)")
+        print(f"- {release_dir}/ (release package)")
         
         print("\nTo distribute:")
-        print("1. Copy the entire 'dist' folder contents")
-        print("2. Include install.bat and README_EXECUTABLE.txt")
-        print("3. Users can run install.bat as Administrator to install")
+        print(f"1. Upload the contents of '{release_dir}' to GitHub releases")
+        print("2. Users can run install.bat as Administrator to install")
         
     else:
         print("\nBuild failed!")

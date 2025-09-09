@@ -11,6 +11,9 @@ from unittest.mock import patch, MagicMock
 import requests
 from bs4 import BeautifulSoup
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from auto_mudfish.connection import MudfishConnection
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException
