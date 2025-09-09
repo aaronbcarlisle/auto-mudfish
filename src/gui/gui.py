@@ -703,9 +703,17 @@ class MudfishGUI(QMainWindow):
         
     def connect_mudfish(self):
         """Start connecting to Mudfish VPN."""
+        self.logger.info("Connect button clicked!")
+        self.log_message("Connect button clicked!")
+        
         if self.worker and self.worker.isRunning():
+            self.logger.warning("Worker already running, ignoring connect request")
+            self.log_message("Operation already in progress, please wait...")
             return
             
+        self.logger.info("Starting connect operation...")
+        self.log_message("Starting connect operation...")
+        
         self.connect_btn.setEnabled(False)
         self.disconnect_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
@@ -717,6 +725,9 @@ class MudfishGUI(QMainWindow):
         self.worker.operation_complete.connect(self.on_operation_complete)
         self.worker.log_message.connect(self.log_message)
         self.worker.start()
+        
+        self.logger.info("Worker started for connect operation")
+        self.log_message("Worker started for connect operation")
         
     def disconnect_mudfish(self):
         """Disconnect from Mudfish VPN."""
@@ -761,6 +772,9 @@ class MudfishGUI(QMainWindow):
         
     def on_operation_complete(self, success, message):
         """Handle operation completion."""
+        self.logger.info(f"Operation completed: success={success}, message={message}")
+        self.log_message(f"Operation completed: success={success}, message={message}")
+        
         self.progress_bar.setVisible(False)
         self.connect_btn.setEnabled(True)
         self.disconnect_btn.setEnabled(True)
@@ -770,14 +784,17 @@ class MudfishGUI(QMainWindow):
             if "connected" in message.lower():
                 self.connect_btn.setEnabled(False)
                 self.disconnect_btn.setEnabled(True)
+                self.logger.info("Setting buttons: Connect disabled, Disconnect enabled")
             elif "disconnected" in message.lower() or "not connected" in message.lower():
                 self.connect_btn.setEnabled(True)
                 self.disconnect_btn.setEnabled(False)
+                self.logger.info("Setting buttons: Connect enabled, Disconnect disabled")
         else:
             self.status_label.setText("Status: Error")
             QMessageBox.warning(self, "Operation Failed", message)
             
         self.status_bar.showMessage("Ready")
+        self.logger.info("Operation completion handled")
         
     def save_credentials(self):
         """Save credentials to secure storage."""
