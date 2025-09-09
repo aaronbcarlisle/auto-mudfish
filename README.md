@@ -14,7 +14,24 @@ A secure, automated solution for connecting to Mudfish VPN with encrypted creden
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### Option 1: GUI Application (Recommended)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch GUI
+python gui.py
+```
+
+The GUI provides:
+- **Easy credential setup** with secure storage
+- **One-click VPN connection** 
+- **Real-time status monitoring**
+- **Detailed logs and troubleshooting**
+- **Settings and preferences**
+
+### Option 2: Command Line Interface
 
 ```bash
 # Clone the repository
@@ -23,34 +40,27 @@ cd auto-mudfish
 
 # Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. First Time Setup
-
-Store your Mudfish credentials securely:
-
-```bash
+# First time setup
 python main.py --setup
+
+# Connect to VPN
+python main.py --use-stored
 ```
 
-This will prompt you for:
-- Mudfish username
-- Mudfish password (hidden input)
-- Admin page URL (optional, uses default if empty)
+### Option 3: Executable Distribution
 
-Your credentials are encrypted using Windows DPAPI and stored in `%USERPROFILE%\.auto_mudfish\credentials.enc`.
-
-### 3. Connect to VPN
-
-Once credentials are stored, simply run:
+For users without Python:
 
 ```bash
-# Using stored credentials
-python main.py --use-stored
+# Build executable
+python build_exe.py
 
-# Or use the convenient batch file
-start_mudfish.bat
+# Or use the build script
+build.bat
 ```
+
+This creates a standalone executable that can be distributed without requiring Python installation.
 
 ## 📖 Usage
 
@@ -98,6 +108,30 @@ python main.py --use-stored -a http://192.168.1.1:8282/signin.html
 # Show browser window (for debugging)
 python main.py --use-stored --show-browser
 ```
+
+### GUI Application
+
+The GUI provides an intuitive interface with four main tabs:
+
+#### Main Tab
+- **Connection Controls**: Connect, Disconnect, Check Status buttons
+- **Status Display**: Real-time connection status and information
+- **Options**: Show browser window, verbose logging
+
+#### Credentials Tab
+- **Credential Management**: Set up, view, and clear stored credentials
+- **Secure Storage**: Credentials encrypted with Windows DPAPI
+- **Admin Page Configuration**: Optional custom admin page URL
+
+#### Settings Tab
+- **General Options**: Auto-connect, minimize to tray, start with Windows
+- **Advanced Settings**: Debug mode, ChromeDriver cleanup
+- **System Integration**: Windows startup and system tray support
+
+#### Logs Tab
+- **Real-time Logging**: View application logs in real-time
+- **Log Management**: Clear logs, save to file
+- **Troubleshooting**: Detailed error information and debugging
 
 ### Batch Scripts
 
