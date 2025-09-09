@@ -201,38 +201,76 @@ class MudfishWorker(QThread):
             
             # Find and terminate Mudfish processes
             mudfish_processes = []
-            for proc in psutil.process_iter(['pid', 'name']):
+            process_names = ['mudfish', 'mudrun', 'mudflow', 'mudfish.exe', 'mudrun.exe', 'mudflow.exe']
+            
+            self.log_message.emit("Searching for Mudfish processes...")
+            for proc in psutil.process_iter(['pid', 'name', 'exe']):
                 try:
-                    if proc.info['name'] and 'mudfish' in proc.info['name'].lower():
-                        mudfish_processes.append(proc)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    proc_name = proc.info['name']
+                    if proc_name:
+                        # Check if process name contains any Mudfish-related terms
+                        for mudfish_name in process_names:
+                            if mudfish_name.lower() in proc_name.lower():
+                                mudfish_processes.append(proc)
+                                self.log_message.emit(f"Found Mudfish process: {proc_name} (PID: {proc.info['pid']})")
+                                break
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     pass
             
             if mudfish_processes:
                 self.log_message.emit(f"Found {len(mudfish_processes)} Mudfish processes to terminate")
                 for proc in mudfish_processes:
                     try:
+                        self.log_message.emit(f"Terminating process: {proc.info['name']} (PID: {proc.info['pid']})")
                         proc.terminate()
-                        self.log_message.emit(f"Terminated process: {proc.info['name']} (PID: {proc.info['pid']})")
+                        self.log_message.emit(f"Sent terminate signal to: {proc.info['name']} (PID: {proc.info['pid']})")
                     except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
                         self.log_message.emit(f"Could not terminate process {proc.info['name']}: {e}")
                 
                 # Wait a moment for processes to terminate
                 import time
-                time.sleep(2)
+                self.log_message.emit("Waiting for processes to terminate...")
+                time.sleep(3)
                 
                 # Force kill if still running
+                still_running = []
                 for proc in mudfish_processes:
                     try:
                         if proc.is_running():
+                            still_running.append(proc)
+                            self.log_message.emit(f"Process still running, force killing: {proc.info['name']} (PID: {proc.info['pid']})")
                             proc.kill()
-                            self.log_message.emit(f"Force killed process: {proc.info['name']} (PID: {proc.info['pid']})")
+                        else:
+                            self.log_message.emit(f"Process terminated successfully: {proc.info['name']} (PID: {proc.info['pid']})")
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        pass
+                        self.log_message.emit(f"Process already terminated: {proc.info['name']} (PID: {proc.info['pid']})")
                 
-                self.log_message.emit("Mudfish processes terminated successfully")
+                if still_running:
+                    self.log_message.emit(f"Force killed {len(still_running)} processes that didn't terminate gracefully")
+                else:
+                    self.log_message.emit("All Mudfish processes terminated successfully")
             else:
                 self.log_message.emit("No Mudfish processes found to terminate")
+                # Try alternative approach - look for processes by executable path
+                self.log_message.emit("Searching for processes by executable path...")
+                for proc in psutil.process_iter(['pid', 'name', 'exe']):
+                    try:
+                        if proc.info['exe'] and 'mudfish' in proc.info['exe'].lower():
+                            mudfish_processes.append(proc)
+                            self.log_message.emit(f"Found Mudfish process by exe: {proc.info['name']} (PID: {proc.info['pid']}) - {proc.info['exe']}")
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        pass
+                
+                if mudfish_processes:
+                    self.log_message.emit(f"Found {len(mudfish_processes)} additional Mudfish processes to terminate")
+                    for proc in mudfish_processes:
+                        try:
+                            proc.terminate()
+                            self.log_message.emit(f"Terminated process: {proc.info['name']} (PID: {proc.info['pid']})")
+                        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                            self.log_message.emit(f"Could not terminate process {proc.info['name']}: {e}")
+                else:
+                    self.log_message.emit("No Mudfish processes found by any method")
                 
         except Exception as e:
             self.log_message.emit(f"Error terminating Mudfish processes: {e}")
