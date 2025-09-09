@@ -1,0 +1,19 @@
+# Files to exclude from installation
+__pycache__\
+*.pyc
+*.pyo
+*.pyd
+.git\
+.gitignore
+venv\
+.venv\
+build\
+dist\
+*.spec
+*.log
+tests\
+docs\
+scripts\
+chromedriver\
+*.bat
+*.cmd

@@ -33,6 +33,7 @@ def setup_credentials() -> bool:
     Returns:
         bool: True if credentials were stored successfully.
     """
+    logger.info("Starting Mudfish credential setup")
     print("\n=== Mudfish Credential Setup ===")
     print("This will securely store your Mudfish credentials for future use.")
     print("Credentials are encrypted using Windows DPAPI and stored locally.\n")
@@ -41,12 +42,14 @@ def setup_credentials() -> bool:
         # Get username
         username = input("Enter your Mudfish username: ").strip()
         if not username:
+            logger.warning("Empty username provided")
             print("Username cannot be empty!")
             return False
         
         # Get password (hidden input)
         password = getpass.getpass("Enter your Mudfish password: ")
         if not password:
+            logger.warning("Empty password provided")
             print("Password cannot be empty!")
             return False
         
@@ -58,16 +61,20 @@ def setup_credentials() -> bool:
         # Store credentials
         cred_manager = get_credential_manager()
         if cred_manager.store_credentials(username, password, adminpage):
+            logger.info("Credentials stored successfully")
             print("✅ Credentials stored successfully!")
             return True
         else:
+            logger.error("Failed to store credentials")
             print("❌ Failed to store credentials!")
             return False
             
     except KeyboardInterrupt:
+        logger.info("Credential setup cancelled by user")
         print("\nSetup cancelled by user.")
         return False
     except Exception as e:
+        logger.error(f"Error during credential setup: {e}")
         print(f"❌ Error during setup: {e}")
         return False
 
@@ -80,14 +87,18 @@ def clear_credentials() -> bool:
         bool: True if credentials were cleared successfully.
     """
     try:
+        logger.info("Clearing stored credentials")
         cred_manager = get_credential_manager()
         if cred_manager.clear_credentials():
+            logger.info("Credentials cleared successfully")
             print("✅ Credentials cleared successfully!")
             return True
         else:
+            logger.error("Failed to clear credentials")
             print("❌ Failed to clear credentials!")
             return False
     except Exception as e:
+        logger.error(f"Error clearing credentials: {e}")
         print(f"❌ Error clearing credentials: {e}")
         return False
 
@@ -95,20 +106,25 @@ def clear_credentials() -> bool:
 def show_credentials() -> None:
     """Show stored credential information (without password)."""
     try:
+        logger.info("Retrieving stored credentials info")
         cred_manager = get_credential_manager()
         if not cred_manager.has_credentials():
+            logger.info("No credentials stored")
             print("No credentials stored.")
             return
         
         info = cred_manager.get_credentials_info()
         if info:
+            logger.info("Credentials info retrieved successfully")
             print("\n=== Stored Credentials ===")
             print(f"Username: {info['username']}")
             print(f"Admin Page: {info['adminpage'] or 'Default'}")
             print(f"Password: {'***' if info['has_password'] else 'Not set'}")
         else:
+            logger.error("Failed to load credential information")
             print("Failed to load credential information.")
     except Exception as e:
+        logger.error(f"Error showing credentials: {e}")
         print(f"❌ Error showing credentials: {e}")
 
 
@@ -350,6 +366,7 @@ Examples:
     if args.cleanup_chromedriver:
         from auto_mudfish.driver import _cleanup_old_chromedrivers
         _cleanup_old_chromedrivers()
+        logger.info("ChromeDriver cleanup completed")
         print("✅ ChromeDriver cleanup completed!")
         sys.exit(0)
     

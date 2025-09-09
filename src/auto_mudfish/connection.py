@@ -145,7 +145,7 @@ class MudfishConnection:
             >>> connection = MudfishConnection()
             >>> success = connection.login_without_driver("myuser", "mypassword")
             >>> if success:
-            ...     print("Login successful!")
+            ...     logger.info("Login successful!")
         """
         session = requests.Session()
         login_url = adminpage or self.DEFAULT_DESKTOP_ADMIN_PAGE
@@ -296,7 +296,7 @@ class MudfishConnection:
         Example:
             >>> connection = MudfishConnection(web_driver)
             >>> if connection.is_mudfish_connected():
-            ...     print("VPN is connected")
+            ...     logger.info("VPN is connected")
         """
         if not self.web_driver:
             return False
@@ -369,7 +369,7 @@ class MudfishConnection:
         Example:
             >>> connection = MudfishConnection(web_driver)
             >>> if connection.is_mudfish_disconnected():
-            ...     print("VPN is disconnected")
+            ...     logger.info("VPN is disconnected")
         """
         if not self.web_driver:
             return True

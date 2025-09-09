@@ -62,7 +62,31 @@ python scripts\build_exe.py
 
 This creates a standalone executable that can be distributed without requiring Python installation.
 
-### Option 4: Unified Launcher
+### Option 4: Installer Package
+
+For easy distribution and installation:
+
+```bash
+# Build installer
+scripts\build_installer.bat
+
+# Or manually
+python scripts\build_installer.py
+```
+
+This creates a professional installer package with:
+- **Graphical Installer**: PyQt6-based installation wizard
+- **Simple Installer**: Automated batch script installer
+- **Complete Package**: Ready for distribution
+
+The installer package includes:
+- Step-by-step installation wizard
+- Customizable installation options
+- Automatic shortcut creation
+- Uninstaller generation
+- System integration
+
+### Option 5: Unified Launcher
 
 ```bash
 # Launch GUI

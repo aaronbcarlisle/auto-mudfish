@@ -98,7 +98,7 @@ class MudfishProcess:
         
         Example:
             >>> if MudfishProcess.is_mudfish_running():
-            ...     print("Mudfish is already running")
+            ...     logger.info("Mudfish is already running")
         """
         # Check all running processes for mudrun.exe
         is_running = "mudrun.exe" in (p.name() for p in psutil.process_iter())
@@ -130,7 +130,7 @@ class MudfishProcess:
         Example:
             >>> process = MudfishProcess()
             >>> if process.start_mudfish_launcher():
-            ...     print("Mudfish started successfully")
+            ...     logger.info("Mudfish started successfully")
         """
         # Early return if Mudfish is already running
         if self.is_mudfish_running():
@@ -174,7 +174,7 @@ class MudfishProcess:
         Example:
             >>> process = MudfishProcess()
             >>> if process.poll_is_mudfish_running(poll_time=15):
-            ...     print("Mudfish started within 15 seconds")
+            ...     logger.info("Mudfish started within 15 seconds")
         """
         # Check if Mudfish is running every second for the specified duration
         for _ in range(poll_time):
@@ -198,7 +198,7 @@ class MudfishProcess:
             >>> process = MudfishProcess()
             >>> launcher = process.find_mudfish_launcher()
             >>> if launcher:
-            ...     print(f"Found launcher at: {launcher}")
+            ...     logger.info(f"Found launcher at: {launcher}")
         """
         logger.info("Finding Mudfish Launcher...")
 

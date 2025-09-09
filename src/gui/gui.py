@@ -9,6 +9,7 @@ Provides an easy-to-use interface for managing credentials and connecting to Mud
 import sys
 import os
 import logging
+import json
 from typing import Optional
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QCheckBox, QProgressBar, QMessageBox, QFileDialog,
     QSystemTrayIcon, QMenu, QStatusBar, QSplitter
 )
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer, Qt, QSettings
 from PyQt6.QtGui import QIcon, QFont, QPixmap
 
 # Add the current directory to Python path for imports
@@ -37,11 +38,13 @@ class MudfishWorker(QThread):
     status_update = pyqtSignal(str)
     progress_update = pyqtSignal(int)
     operation_complete = pyqtSignal(bool, str)
+    log_message = pyqtSignal(str)
     
     def __init__(self, operation_type: str, **kwargs):
         super().__init__()
         self.operation_type = operation_type
         self.kwargs = kwargs
+        self.logger = logging.getLogger("auto_mudfish.gui.worker")
         
     def run(self):
         """Execute the specified operation."""
@@ -55,29 +58,39 @@ class MudfishWorker(QThread):
             elif self.operation_type == "setup_credentials":
                 self._setup_credentials()
         except Exception as e:
-            self.operation_complete.emit(False, f"Error: {str(e)}")
+            error_msg = f"Error: {str(e)}"
+            self.logger.error(error_msg)
+            self.log_message.emit(error_msg)
+            self.operation_complete.emit(False, error_msg)
     
     def _connect_mudfish(self):
         """Connect to Mudfish VPN."""
         self.status_update.emit("Starting Mudfish automation...")
         self.progress_update.emit(10)
+        self.log_message.emit("Starting Mudfish automation...")
         
         # Check if Mudfish is running
         self.status_update.emit("Checking Mudfish process...")
+        self.log_message.emit("Checking Mudfish process...")
         mudfish_process = MudfishProcess()
         if not mudfish_process.start_mudfish_launcher():
-            self.operation_complete.emit(False, "Mudfish is not running and could not be started.")
+            error_msg = "Mudfish is not running and could not be started."
+            self.log_message.emit(error_msg)
+            self.operation_complete.emit(False, error_msg)
             return
         
         self.progress_update.emit(30)
         
         # Load credentials
         self.status_update.emit("Loading credentials...")
+        self.log_message.emit("Loading credentials...")
         cred_manager = get_credential_manager()
         credentials = cred_manager.load_credentials()
         
         if not credentials:
-            self.operation_complete.emit(False, "No stored credentials found. Please set up credentials first.")
+            error_msg = "No stored credentials found. Please set up credentials first."
+            self.log_message.emit(error_msg)
+            self.operation_complete.emit(False, error_msg)
             return
         
         username = credentials.get("username", "")
@@ -88,64 +101,117 @@ class MudfishWorker(QThread):
         
         # Attempt headless login
         self.status_update.emit("Attempting headless login...")
+        self.log_message.emit("Attempting headless login...")
         mudfish_connection = MudfishConnection(web_driver=None)
         if mudfish_connection.login_without_driver(username, password, adminpage):
             self.status_update.emit("Headless login successful!")
+            self.log_message.emit("Headless login successful!")
             self.progress_update.emit(70)
         else:
             self.status_update.emit("Headless login failed, using WebDriver...")
+            self.log_message.emit("Headless login failed, using WebDriver...")
             self.progress_update.emit(60)
         
         # Use WebDriver for connection
         self.status_update.emit("Starting WebDriver...")
+        self.log_message.emit("Starting WebDriver...")
         chrome_driver = get_chrome_driver(headless=True)
         if not chrome_driver:
-            self.operation_complete.emit(False, "Failed to create Chrome WebDriver.")
+            error_msg = "Failed to create Chrome WebDriver."
+            self.log_message.emit(error_msg)
+            self.operation_complete.emit(False, error_msg)
             return
         
         self.progress_update.emit(80)
         
         # Complete connection
         self.status_update.emit("Connecting to VPN...")
+        self.log_message.emit("Connecting to VPN...")
         mudfish_connection = MudfishConnection(web_driver=chrome_driver)
         mudfish_connection.login(username, password, adminpage)
         mudfish_connection.connect()
         
         self.progress_update.emit(100)
-        self.operation_complete.emit(True, "Successfully connected to Mudfish VPN!")
+        success_msg = "Successfully connected to Mudfish VPN!"
+        self.log_message.emit(success_msg)
+        self.operation_complete.emit(True, success_msg)
     
     def _disconnect_mudfish(self):
         """Disconnect from Mudfish VPN."""
         self.status_update.emit("Disconnecting from Mudfish...")
-        self.progress_update.emit(50)
+        self.log_message.emit("Disconnecting from Mudfish...")
+        self.progress_update.emit(25)
         
         chrome_driver = get_chrome_driver(headless=True)
         if chrome_driver:
+            self.progress_update.emit(50)
+            self.log_message.emit("WebDriver created, attempting disconnect...")
+            
             mudfish_connection = MudfishConnection(web_driver=chrome_driver)
-            mudfish_connection.disconnect()
-            self.progress_update.emit(100)
-            self.operation_complete.emit(True, "Successfully disconnected from Mudfish VPN!")
+            
+            # Check if connected first
+            if mudfish_connection.is_mudfish_connected():
+                self.log_message.emit("VPN is connected, attempting disconnect...")
+                mudfish_connection.disconnect()
+                self.progress_update.emit(75)
+                
+                # Wait a moment and check if disconnected
+                self.status_update.emit("Verifying disconnect...")
+                self.log_message.emit("Verifying disconnect...")
+                if mudfish_connection.is_mudfish_disconnected():
+                    success_msg = "Successfully disconnected from Mudfish VPN!"
+                    self.log_message.emit(success_msg)
+                    self.progress_update.emit(100)
+                    self.operation_complete.emit(True, success_msg)
+                else:
+                    error_msg = "Disconnect command sent but status unclear."
+                    self.log_message.emit(error_msg)
+                    self.progress_update.emit(100)
+                    self.operation_complete.emit(False, error_msg)
+            else:
+                info_msg = "Mudfish is not currently connected."
+                self.log_message.emit(info_msg)
+                self.progress_update.emit(100)
+                self.operation_complete.emit(True, info_msg)
         else:
-            self.operation_complete.emit(False, "Failed to create Chrome WebDriver for disconnect.")
+            error_msg = "Failed to create Chrome WebDriver for disconnect."
+            self.log_message.emit(error_msg)
+            self.operation_complete.emit(False, error_msg)
     
     def _check_status(self):
         """Check Mudfish connection status."""
         self.status_update.emit("Checking connection status...")
-        self.progress_update.emit(50)
+        self.log_message.emit("Checking connection status...")
+        self.progress_update.emit(25)
         
         chrome_driver = get_chrome_driver(headless=True)
         if chrome_driver:
+            self.progress_update.emit(50)
+            self.log_message.emit("WebDriver created, checking status...")
+            
             mudfish_connection = MudfishConnection(web_driver=chrome_driver)
+            self.progress_update.emit(75)
+            
             if mudfish_connection.is_mudfish_connected():
-                self.operation_complete.emit(True, "Mudfish is currently connected.")
+                status_msg = "Mudfish is currently connected."
+                self.log_message.emit(status_msg)
+                self.progress_update.emit(100)
+                self.operation_complete.emit(True, status_msg)
             else:
-                self.operation_complete.emit(True, "Mudfish is not connected.")
+                status_msg = "Mudfish is not connected."
+                self.log_message.emit(status_msg)
+                self.progress_update.emit(100)
+                self.operation_complete.emit(True, status_msg)
         else:
-            self.operation_complete.emit(False, "Failed to check status - WebDriver error.")
+            error_msg = "Failed to check status - WebDriver error."
+            self.log_message.emit(error_msg)
+            self.operation_complete.emit(False, error_msg)
     
     def _setup_credentials(self):
         """Set up credentials (placeholder - would need GUI input)."""
-        self.operation_complete.emit(False, "Credential setup should be done through the GUI.")
+        error_msg = "Credential setup should be done through the GUI."
+        self.log_message.emit(error_msg)
+        self.operation_complete.emit(False, error_msg)
 
 
 class MudfishGUI(QMainWindow):
@@ -154,13 +220,19 @@ class MudfishGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.worker = None
+        self.settings = QSettings("AutoMudfish", "Settings")
         self.setup_ui()
         self.setup_logging()
+        self.load_settings()
+        self.setup_dark_theme()
+        
+        # Check status on startup
+        QTimer.singleShot(1000, self.check_status_on_startup)
         
     def setup_ui(self):
         """Set up the user interface."""
         self.setWindowTitle("Auto Mudfish VPN")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 900, 700)
         
         # Create central widget
         central_widget = QWidget()
@@ -189,6 +261,141 @@ class MudfishGUI(QMainWindow):
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
         
+    def setup_dark_theme(self):
+        """Apply dark theme stylesheet."""
+        dark_stylesheet = """
+        QMainWindow {
+            background-color: #2b2b2b;
+            color: #ffffff;
+        }
+        
+        QWidget {
+            background-color: #2b2b2b;
+            color: #ffffff;
+        }
+        
+        QTabWidget::pane {
+            border: 1px solid #555555;
+            background-color: #3c3c3c;
+        }
+        
+        QTabBar::tab {
+            background-color: #3c3c3c;
+            color: #ffffff;
+            padding: 8px 16px;
+            margin-right: 2px;
+        }
+        
+        QTabBar::tab:selected {
+            background-color: #4a4a4a;
+            border-bottom: 2px solid #0078d4;
+        }
+        
+        QTabBar::tab:hover {
+            background-color: #4a4a4a;
+        }
+        
+        QGroupBox {
+            font-weight: bold;
+            border: 2px solid #555555;
+            border-radius: 5px;
+            margin-top: 1ex;
+            padding-top: 10px;
+        }
+        
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 5px 0 5px;
+        }
+        
+        QPushButton {
+            background-color: #404040;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            padding: 8px 16px;
+            color: #ffffff;
+        }
+        
+        QPushButton:hover {
+            background-color: #4a4a4a;
+        }
+        
+        QPushButton:pressed {
+            background-color: #353535;
+        }
+        
+        QPushButton:disabled {
+            background-color: #2b2b2b;
+            color: #666666;
+        }
+        
+        QLineEdit {
+            background-color: #404040;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            padding: 6px;
+            color: #ffffff;
+        }
+        
+        QLineEdit:focus {
+            border: 2px solid #0078d4;
+        }
+        
+        QTextEdit {
+            background-color: #1e1e1e;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            color: #ffffff;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        QCheckBox {
+            color: #ffffff;
+        }
+        
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+        }
+        
+        QCheckBox::indicator:unchecked {
+            border: 2px solid #555555;
+            background-color: #404040;
+            border-radius: 3px;
+        }
+        
+        QCheckBox::indicator:checked {
+            border: 2px solid #0078d4;
+            background-color: #0078d4;
+            border-radius: 3px;
+        }
+        
+        QProgressBar {
+            border: 2px solid #555555;
+            border-radius: 5px;
+            text-align: center;
+            background-color: #404040;
+        }
+        
+        QProgressBar::chunk {
+            background-color: #0078d4;
+            border-radius: 3px;
+        }
+        
+        QStatusBar {
+            background-color: #2b2b2b;
+            color: #ffffff;
+            border-top: 1px solid #555555;
+        }
+        
+        QLabel {
+            color: #ffffff;
+        }
+        """
+        
+        self.setStyleSheet(dark_stylesheet)
+        
     def create_main_tab(self, parent):
         """Create the main control tab."""
         main_tab = QWidget()
@@ -206,7 +413,7 @@ class MudfishGUI(QMainWindow):
         status_group = QGroupBox("Status")
         status_layout = QVBoxLayout(status_group)
         
-        self.status_label = QLabel("Status: Not connected")
+        self.status_label = QLabel("Status: Checking...")
         self.status_label.setFont(QFont("Arial", 12))
         status_layout.addWidget(self.status_label)
         
@@ -423,6 +630,29 @@ class MudfishGUI(QMainWindow):
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logging.getLogger().addHandler(handler)
         
+    def load_settings(self):
+        """Load settings from persistent storage."""
+        self.show_browser_cb.setChecked(self.settings.value("show_browser", False, type=bool))
+        self.verbose_cb.setChecked(self.settings.value("verbose", False, type=bool))
+        self.auto_connect_cb.setChecked(self.settings.value("auto_connect", False, type=bool))
+        self.minimize_to_tray_cb.setChecked(self.settings.value("minimize_to_tray", False, type=bool))
+        self.start_with_windows_cb.setChecked(self.settings.value("start_with_windows", False, type=bool))
+        self.debug_mode_cb.setChecked(self.settings.value("debug_mode", False, type=bool))
+        
+    def save_settings(self):
+        """Save settings to persistent storage."""
+        self.settings.setValue("show_browser", self.show_browser_cb.isChecked())
+        self.settings.setValue("verbose", self.verbose_cb.isChecked())
+        self.settings.setValue("auto_connect", self.auto_connect_cb.isChecked())
+        self.settings.setValue("minimize_to_tray", self.minimize_to_tray_cb.isChecked())
+        self.settings.setValue("start_with_windows", self.start_with_windows_cb.isChecked())
+        self.settings.setValue("debug_mode", self.debug_mode_cb.isChecked())
+        
+    def check_status_on_startup(self):
+        """Check connection status on startup."""
+        self.logger.info("Checking connection status on startup...")
+        self.check_status()
+        
     def connect_mudfish(self):
         """Start connecting to Mudfish VPN."""
         if self.worker and self.worker.isRunning():
@@ -437,6 +667,7 @@ class MudfishGUI(QMainWindow):
         self.worker.status_update.connect(self.update_status)
         self.worker.progress_update.connect(self.progress_bar.setValue)
         self.worker.operation_complete.connect(self.on_operation_complete)
+        self.worker.log_message.connect(self.log_message)
         self.worker.start()
         
     def disconnect_mudfish(self):
@@ -453,6 +684,7 @@ class MudfishGUI(QMainWindow):
         self.worker.status_update.connect(self.update_status)
         self.worker.progress_update.connect(self.progress_bar.setValue)
         self.worker.operation_complete.connect(self.on_operation_complete)
+        self.worker.log_message.connect(self.log_message)
         self.worker.start()
         
     def check_status(self):
@@ -467,12 +699,17 @@ class MudfishGUI(QMainWindow):
         self.worker.status_update.connect(self.update_status)
         self.worker.progress_update.connect(self.progress_bar.setValue)
         self.worker.operation_complete.connect(self.on_operation_complete)
+        self.worker.log_message.connect(self.log_message)
         self.worker.start()
         
     def update_status(self, message):
         """Update status message."""
         self.status_bar.showMessage(message)
         self.logger.info(message)
+        
+    def log_message(self, message):
+        """Add message to log display."""
+        self.log_display.append(message)
         
     def on_operation_complete(self, success, message):
         """Handle operation completion."""
@@ -485,7 +722,7 @@ class MudfishGUI(QMainWindow):
             if "connected" in message.lower():
                 self.connect_btn.setEnabled(False)
                 self.disconnect_btn.setEnabled(True)
-            elif "disconnected" in message.lower():
+            elif "disconnected" in message.lower() or "not connected" in message.lower():
                 self.connect_btn.setEnabled(True)
                 self.disconnect_btn.setEnabled(False)
         else:
@@ -580,6 +817,11 @@ class MudfishGUI(QMainWindow):
                 QMessageBox.information(self, "Success", f"Logs saved to {filename}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save logs: {str(e)}")
+                
+    def closeEvent(self, event):
+        """Handle application close event."""
+        self.save_settings()
+        event.accept()
 
 
 def main():

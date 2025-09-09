@@ -49,6 +49,7 @@ Examples:
             from gui import main as gui_main
             gui_main()
         except ImportError as e:
+            logger.error(f"Error launching GUI: {e}")
             print(f"Error launching GUI: {e}")
             print("Make sure PyQt6 is installed: pip install PyQt6")
             print("Falling back to CLI...")
