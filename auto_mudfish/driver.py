@@ -8,6 +8,9 @@ with automatic driver downloading and configuration for headless operation.
 from typing import Optional
 import os
 import logging
+import requests
+import zipfile
+import tempfile
 
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -19,6 +22,151 @@ from get_chrome_driver.enums.os_platform import OsPlatform
 
 # Configure logging
 logger = logging.getLogger("auto_mudfish.driver")
+
+
+def _download_specific_chromedriver(headless: bool = True) -> Optional[webdriver.Chrome]:
+    """
+    Download a specific ChromeDriver version that matches the installed Chrome version.
+    
+    Args:
+        headless (bool): Whether to run Chrome in headless mode.
+        
+    Returns:
+        Optional[webdriver.Chrome]: ChromeDriver instance if successful, None otherwise.
+    """
+    try:
+        # Get Chrome version
+        import subprocess
+        result = subprocess.run([
+            "reg", "query", 
+            "HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon", 
+            "/v", "version"
+        ], capture_output=True, text=True, shell=True)
+        
+        if result.returncode != 0:
+            # Try alternative registry path
+            result = subprocess.run([
+                "reg", "query", 
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\Google\\Chrome\\BLBeacon", 
+                "/v", "version"
+            ], capture_output=True, text=True, shell=True)
+        
+        if result.returncode != 0:
+            logger.error("Could not determine Chrome version")
+            return None
+            
+        # Extract version number
+        version_line = [line for line in result.stdout.split('\n') if 'version' in line.lower()]
+        if not version_line:
+            logger.error("Could not parse Chrome version")
+            return None
+            
+        chrome_version = version_line[0].split()[-1]
+        major_version = chrome_version.split('.')[0]
+        
+        logger.info("Detected Chrome version: %s (major: %s)", chrome_version, major_version)
+        
+        # Try multiple approaches to get ChromeDriver
+        download_url = None
+        driver_version = None
+        
+        # Approach 1: Try Chrome for Testing API (newest)
+        try:
+            api_url = f"https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_{major_version}"
+            response = requests.get(api_url, timeout=10)
+            if response.status_code == 200:
+                driver_version = response.text.strip()
+                logger.info("Found ChromeDriver version (Chrome for Testing): %s", driver_version)
+                download_url = f"https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/{driver_version}/win32/chromedriver-win32.zip"
+        except Exception as e:
+            logger.debug("Chrome for Testing API failed: %s", e)
+        
+        # Approach 2: Try old Google Storage API
+        if not download_url:
+            try:
+                chromedriver_url = f"https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{major_version}"
+                response = requests.get(chromedriver_url, timeout=10)
+                if response.status_code == 200:
+                    driver_version = response.text.strip()
+                    logger.info("Found ChromeDriver version (Google Storage): %s", driver_version)
+                    download_url = f"https://chromedriver.storage.googleapis.com/{driver_version}/chromedriver_win32.zip"
+            except Exception as e:
+                logger.debug("Google Storage API failed: %s", e)
+        
+        # Approach 3: Try direct version matching
+        if not download_url:
+            try:
+                # Try to find a compatible version by testing a few common ones
+                test_versions = [
+                    f"{major_version}.0.0.0",
+                    f"{major_version}.0.6778.85",  # Common stable version
+                    f"{major_version}.0.6998.165", # Another common version
+                ]
+                
+                for test_version in test_versions:
+                    test_url = f"https://chromedriver.storage.googleapis.com/{test_version}/chromedriver_win32.zip"
+                    try:
+                        response = requests.head(test_url, timeout=5)
+                        if response.status_code == 200:
+                            driver_version = test_version
+                            download_url = test_url
+                            logger.info("Found compatible ChromeDriver version: %s", driver_version)
+                            break
+                    except:
+                        continue
+            except Exception as e:
+                logger.debug("Direct version matching failed: %s", e)
+        
+        # Approach 4: Last resort - use major version
+        if not download_url:
+            driver_version = major_version
+            download_url = f"https://chromedriver.storage.googleapis.com/{driver_version}/chromedriver_win32.zip"
+            logger.warning("Using major version as fallback: %s", driver_version)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger.info("Downloading ChromeDriver from: %s", download_url)
+            response = requests.get(download_url, timeout=30)
+            response.raise_for_status()
+            
+            # Save and extract
+            zip_path = os.path.join(temp_dir, "chromedriver.zip")
+            with open(zip_path, 'wb') as f:
+                f.write(response.content)
+            
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            
+            # Find chromedriver.exe (handle both old and new formats)
+            chromedriver_path = None
+            for root, dirs, files in os.walk(temp_dir):
+                if 'chromedriver.exe' in files:
+                    chromedriver_path = os.path.join(root, 'chromedriver.exe')
+                    break
+            
+            if not chromedriver_path:
+                # Try to find it in subdirectories (new Chrome for Testing format)
+                for root, dirs, files in os.walk(temp_dir):
+                    for subdir in dirs:
+                        subdir_path = os.path.join(root, subdir)
+                        for subroot, subdirs, subfiles in os.walk(subdir_path):
+                            if 'chromedriver.exe' in subfiles:
+                                chromedriver_path = os.path.join(subroot, 'chromedriver.exe')
+                                break
+                        if chromedriver_path:
+                            break
+                    if chromedriver_path:
+                        break
+            
+            if not chromedriver_path:
+                logger.error("Could not find chromedriver.exe in downloaded archive")
+                return None
+            
+            # Create ChromeDriver instance
+            return ChromeDriver(headless=headless, executable_path=chromedriver_path)
+            
+    except Exception as e:
+        logger.error("Failed to download specific ChromeDriver version: %s", e)
+        return None
 
 
 def get_chrome_driver(headless: bool = True) -> Optional[webdriver.Chrome]:
@@ -61,8 +209,15 @@ def get_chrome_driver(headless: bool = True) -> Optional[webdriver.Chrome]:
             return ChromeDriver(headless=headless)
         except Exception as fallback_error:
             logger.error("Failed to create Chrome WebDriver with system driver: %s", fallback_error)
-            logger.error("Please ensure Chrome browser is installed and up to date")
-            return None
+            logger.info("Attempting to download specific ChromeDriver version...")
+            
+            # Second fallback: Try to download a specific version
+            try:
+                return _download_specific_chromedriver(headless)
+            except Exception as download_error:
+                logger.error("Failed to download specific ChromeDriver version: %s", download_error)
+                logger.error("Please ensure Chrome browser is installed and up to date")
+                return None
 
 
 class ChromeDriver(webdriver.Chrome):
