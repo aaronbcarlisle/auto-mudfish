@@ -10,11 +10,13 @@ point for the application and handles command-line argument parsing.
 import sys
 import logging
 import argparse
+import getpass
 from typing import Optional
 
 from auto_mudfish.connection import MudfishConnection
 from auto_mudfish.driver import get_chrome_driver
 from auto_mudfish.process import MudfishProcess
+from auto_mudfish.credentials import get_credential_manager
 
 # Configure logging
 logging.basicConfig(
@@ -24,11 +26,129 @@ logging.basicConfig(
 logger = logging.getLogger("auto_mudfish.main")
 
 
+def setup_credentials() -> bool:
+    """
+    Interactive setup for storing credentials.
+    
+    Returns:
+        bool: True if credentials were stored successfully.
+    """
+    print("\n=== Mudfish Credential Setup ===")
+    print("This will securely store your Mudfish credentials for future use.")
+    print("Credentials are encrypted using Windows DPAPI and stored locally.\n")
+    
+    try:
+        # Get username
+        username = input("Enter your Mudfish username: ").strip()
+        if not username:
+            print("Username cannot be empty!")
+            return False
+        
+        # Get password (hidden input)
+        password = getpass.getpass("Enter your Mudfish password: ")
+        if not password:
+            print("Password cannot be empty!")
+            return False
+        
+        # Get admin page (optional)
+        adminpage = input("Enter admin page URL (optional, press Enter for default): ").strip()
+        if not adminpage:
+            adminpage = None
+        
+        # Store credentials
+        cred_manager = get_credential_manager()
+        if cred_manager.store_credentials(username, password, adminpage):
+            print("✅ Credentials stored successfully!")
+            return True
+        else:
+            print("❌ Failed to store credentials!")
+            return False
+            
+    except KeyboardInterrupt:
+        print("\nSetup cancelled by user.")
+        return False
+    except Exception as e:
+        print(f"❌ Error during setup: {e}")
+        return False
+
+
+def clear_credentials() -> bool:
+    """
+    Clear stored credentials.
+    
+    Returns:
+        bool: True if credentials were cleared successfully.
+    """
+    try:
+        cred_manager = get_credential_manager()
+        if cred_manager.clear_credentials():
+            print("✅ Credentials cleared successfully!")
+            return True
+        else:
+            print("❌ Failed to clear credentials!")
+            return False
+    except Exception as e:
+        print(f"❌ Error clearing credentials: {e}")
+        return False
+
+
+def show_credentials() -> None:
+    """Show stored credential information (without password)."""
+    try:
+        cred_manager = get_credential_manager()
+        if not cred_manager.has_credentials():
+            print("No credentials stored.")
+            return
+        
+        info = cred_manager.get_credentials_info()
+        if info:
+            print("\n=== Stored Credentials ===")
+            print(f"Username: {info['username']}")
+            print(f"Admin Page: {info['adminpage'] or 'Default'}")
+            print(f"Password: {'***' if info['has_password'] else 'Not set'}")
+        else:
+            print("Failed to load credential information.")
+    except Exception as e:
+        print(f"❌ Error showing credentials: {e}")
+
+
+def load_credentials() -> Optional[tuple[str, str, Optional[str]]]:
+    """
+    Load stored credentials.
+    
+    Returns:
+        Optional[tuple[str, str, Optional[str]]]: (username, password, adminpage) or None.
+    """
+    try:
+        cred_manager = get_credential_manager()
+        credentials = cred_manager.load_credentials()
+        
+        if credentials:
+            username = credentials.get("username", "")
+            password = credentials.get("password", "")
+            adminpage = credentials.get("adminpage")
+            
+            if username and password:
+                logger.info("Loaded credentials from secure storage")
+                return username, password, adminpage
+            else:
+                logger.warning("Incomplete credentials in storage")
+                return None
+        else:
+            logger.debug("No credentials found in storage")
+            return None
+            
+    except Exception as e:
+        logger.error("Failed to load credentials: %s", e)
+        return None
+
+
 def main(
-    username: str,
-    password: str,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
     adminpage: Optional[str] = None,
-    launcher: Optional[str] = None
+    launcher: Optional[str] = None,
+    use_stored: bool = False
 ) -> None:
     """
     Main function that orchestrates Mudfish VPN automation.
@@ -40,17 +160,42 @@ def main(
     4. Establishes the VPN connection
     
     Args:
-        username (str): The username for the Mudfish account.
-        password (str): The password for the Mudfish account.
+        username (Optional[str]): The username for the Mudfish account.
+                                 If None and use_stored=True, loads from storage.
+        password (Optional[str]): The password for the Mudfish account.
+                                 If None and use_stored=True, loads from storage.
         adminpage (Optional[str]): Custom admin page URL. If None, uses
-                                 the default desktop admin page.
+                                 the default desktop admin page or stored value.
         launcher (Optional[str]): Custom path to the Mudfish launcher.
                                 If None, auto-detects the launcher.
+        use_stored (bool): If True, attempt to load credentials from secure storage.
     
     Raises:
         SystemExit: If Mudfish cannot be started or critical errors occur.
     """
     logger.info("Starting Mudfish automation process...")
+    
+    # Load credentials if requested
+    if use_stored or (username is None and password is None):
+        stored_creds = load_credentials()
+        if stored_creds:
+            stored_username, stored_password, stored_adminpage = stored_creds
+            if username is None:
+                username = stored_username
+            if password is None:
+                password = stored_password
+            if adminpage is None and stored_adminpage:
+                adminpage = stored_adminpage
+        else:
+            logger.error("No stored credentials found and no credentials provided!")
+            logger.info("Run 'python main.py --setup' to store credentials securely.")
+            sys.exit(1)
+    
+    # Validate required credentials
+    if not username or not password:
+        logger.error("Username and password are required!")
+        logger.info("Run 'python main.py --setup' to store credentials securely.")
+        sys.exit(1)
     
     # Step 1: Ensure Mudfish process is running
     mudfish_process = MudfishProcess()
@@ -100,20 +245,44 @@ Examples:
   %(prog)s -u myuser -p mypassword -a http://192.168.1.1:8282/signin.html
   %(prog)s -u myuser -p mypassword -l "C:/Custom/Path/mudfish.exe"
   %(prog)s -u myuser -p mypassword -v
+  %(prog)s --setup                    # Store credentials securely
+  %(prog)s --use-stored               # Use stored credentials
+  %(prog)s --show-credentials         # Show stored credential info
+  %(prog)s --clear-credentials        # Clear stored credentials
         """
     )
 
-    # Required arguments
+    # Credential management commands
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Setup and store credentials securely"
+    )
+    parser.add_argument(
+        "--use-stored",
+        action="store_true",
+        help="Use stored credentials (no need to provide username/password)"
+    )
+    parser.add_argument(
+        "--show-credentials",
+        action="store_true",
+        help="Show stored credential information"
+    )
+    parser.add_argument(
+        "--clear-credentials",
+        action="store_true",
+        help="Clear stored credentials"
+    )
+
+    # Authentication arguments
     parser.add_argument(
         "-u", "--username",
         type=str,
-        required=True,
         help="Username for the Mudfish account"
     )
     parser.add_argument(
         "-p", "--password",
         type=str,
-        required=True,
         help="Password for the Mudfish account"
     )
 
@@ -142,9 +311,27 @@ Examples:
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
+    # Handle credential management commands
+    if args.setup:
+        success = setup_credentials()
+        sys.exit(0 if success else 1)
+    
+    if args.show_credentials:
+        show_credentials()
+        sys.exit(0)
+    
+    if args.clear_credentials:
+        success = clear_credentials()
+        sys.exit(0 if success else 1)
+    
+    # Validate arguments for main function
+    if not args.use_stored and (not args.username or not args.password):
+        parser.error("Username and password are required unless using --use-stored")
+    
     # Log parsed arguments (excluding password for security)
     main_kwargs = vars(args).copy()
-    main_kwargs['password'] = '***'  # Hide password in logs
+    if main_kwargs.get('password'):
+        main_kwargs['password'] = '***'  # Hide password in logs
     logger.debug("Parsed arguments: %s", main_kwargs)
     
     # Execute main function
@@ -153,7 +340,8 @@ Examples:
             username=args.username,
             password=args.password,
             adminpage=args.adminpage,
-            launcher=args.launcher
+            launcher=args.launcher,
+            use_stored=args.use_stored
         )
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
