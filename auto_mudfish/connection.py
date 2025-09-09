@@ -171,16 +171,40 @@ class MudfishConnection:
             post_response = session.post(login_url, data=payload)
 
             # Determine login success based on response
-            if post_response.status_code == 200 and "You are logged in" in post_response.text:
+            response_text = post_response.text.lower()
+            
+            # Check for various success indicators
+            success_indicators = [
+                "you are logged in",
+                "welcome",
+                "dashboard",
+                "logout",
+                "sign out",
+                "success",
+                "logged in successfully"
+            ]
+            
+            # Check if any success indicator is present
+            login_success = any(indicator in response_text for indicator in success_indicators)
+            
+            # Check for redirect (common success indicator)
+            has_redirect = bool(post_response.history)
+            
+            # Check if we're still on the login page (failure indicator)
+            still_on_login = "signin" in post_response.url.lower() or "login" in post_response.url.lower()
+            
+            if login_success or (has_redirect and not still_on_login):
                 logger.info("Successfully logged into Mudfish without driver")
                 return True
-            elif post_response.history:  # Check for redirect (common success indicator)
-                logger.info("Login initiated, redirected to: %s", post_response.url)
+            elif post_response.status_code == 200 and not still_on_login:
+                # If we got a 200 response and we're not on the login page, assume success
+                logger.info("Login appears successful (200 response, not on login page)")
                 return True
             else:
                 logger.warning(
-                    "Failed to log in to Mudfish without driver. Status: %s, Response: %s",
+                    "Failed to log in to Mudfish without driver. Status: %s, URL: %s, Response: %s",
                     post_response.status_code,
+                    post_response.url,
                     post_response.text[:200]
                 )
                 return False

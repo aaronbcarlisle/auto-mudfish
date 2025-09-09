@@ -52,12 +52,17 @@ def get_chrome_driver(headless: bool = True) -> Optional[webdriver.Chrome]:
         executable_path = os.path.join(output_path, "chromedriver.exe")
         return ChromeDriver(headless=headless, executable_path=executable_path)
         
-    except SessionNotCreatedException as e:
-        logger.warning("Failed to create Chrome WebDriver session: %s", e)
-        return None
     except Exception as e:
-        logger.error("Unexpected error while creating Chrome WebDriver: %s", e)
-        return None
+        logger.warning("Failed to download ChromeDriver: %s", e)
+        logger.info("Attempting to use system ChromeDriver...")
+        
+        # Fallback: Try to use system ChromeDriver
+        try:
+            return ChromeDriver(headless=headless)
+        except Exception as fallback_error:
+            logger.error("Failed to create Chrome WebDriver with system driver: %s", fallback_error)
+            logger.error("Please ensure Chrome browser is installed and up to date")
+            return None
 
 
 class ChromeDriver(webdriver.Chrome):
