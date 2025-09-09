@@ -781,14 +781,16 @@ class MudfishGUI(QMainWindow):
         
         if success:
             self.status_label.setText(f"Status: {message}")
-            if "connected" in message.lower():
+            message_lower = message.lower()
+            if "connected" in message_lower and "not connected" not in message_lower:
                 self.connect_btn.setEnabled(False)
                 self.disconnect_btn.setEnabled(True)
                 self.logger.info("Setting buttons: Connect disabled, Disconnect enabled")
-            elif "disconnected" in message.lower() or "not connected" in message.lower():
+            else:
+                # Default case - enable connect, disable disconnect (for disconnected, not connected, or any other status)
                 self.connect_btn.setEnabled(True)
                 self.disconnect_btn.setEnabled(False)
-                self.logger.info("Setting buttons: Connect enabled, Disconnect disabled")
+                self.logger.info("Setting buttons: Connect enabled, Disconnect disabled (default/not connected)")
         else:
             self.status_label.setText("Status: Error")
             QMessageBox.warning(self, "Operation Failed", message)
